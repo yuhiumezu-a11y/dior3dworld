@@ -1,0 +1,2000 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Dior Strategic Map (UGC Breakdown)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* --- 基本設定 --- */
+        body { margin: 0; overflow: hidden; font-family: "Didot", "Bodoni MT", serif; background-color: #0a0a0e; color: #fff; }
+        
+        #viewer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; cursor: grab; }
+        #viewer:active { cursor: grabbing; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+
+        /* 左サイドバー */
+        #left-sidebar {
+            position: absolute; top: 20px; left: 20px; width: 50px;
+            background: rgba(20, 20, 25, 0.85); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px;
+            display: flex; flex-direction: column; align-items: center;
+            padding: 15px 0; gap: 12px; pointer-events: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            max-height: 90vh; overflow-y: auto; 
+            scrollbar-width: none; 
+        }
+        #left-sidebar::-webkit-scrollbar { display: none; }
+
+        .icon-btn { color: #888; font-size: 18px; cursor: pointer; transition: all 0.3s; width: 30px; height: 30px; display: flex; justify-content: center; align-items: center; border-radius: 4px; }
+        .icon-btn:hover, .icon-btn.active { color: #fff; }
+        .divider { width: 60%; height: 1px; background: rgba(255,255,255,0.1); margin: 5px 0; }
+
+        /* ヘッダータイトル */
+        .header-title {
+            position: absolute; top: 25px; left: 90px;
+            font-size: 18px; font-weight: normal; letter-spacing: 1px;
+            pointer-events: auto; text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        }
+
+        /* 右上情報パネル */
+        #info-card {
+            position: absolute; top: 20px; right: 20px; width: 360px;
+            max-height: 90vh; overflow-y: auto;
+            background: rgba(15, 15, 20, 0.95); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; padding: 25px;
+            color: #fff; font-family: "Helvetica Neue", sans-serif;
+            pointer-events: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            transform: translateX(120%); transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        #info-card.active { transform: translateX(0); }
+        
+        #info-card h2 { margin: 0 0 5px 0; font-size: 22px; font-weight: normal; color: #D4AF37; font-family: "Didot", serif; border-bottom: 1px solid #444; padding-bottom: 10px; line-height: 1.3; }
+        #info-card .badge { display: inline-block; background: #333; color: #ccc; font-size: 9px; padding: 3px 8px; border-radius: 2px; margin-bottom: 10px; letter-spacing: 1px; text-transform: uppercase; }
+        #info-card .ugc-badge { display: inline-block; background: #D4AF37; color: #000; font-weight: bold; font-size: 10px; padding: 3px 8px; border-radius: 2px; margin-bottom: 10px; margin-right: 5px;}
+        #info-card h3 { margin: 20px 0 8px 0; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px; border-left: 2px solid #D4AF37; padding-left: 8px; }
+        #info-card p { font-size: 13px; color: #ddd; line-height: 1.6; margin: 0; }
+        
+        /* 戦略テーブル */
+        .pos-table { width: 100%; margin-top: 10px; font-size: 12px; border-collapse: collapse; }
+        .pos-table td { padding: 10px 0; border-bottom: 1px solid #333; vertical-align: top; }
+        .pos-label { color: #888; width: 25%; font-weight: bold; font-size: 11px; }
+        .pos-val { color: #fff; }
+        .highlight { color: #D4AF37; font-weight: bold; }
+
+        /* UGCランキングテーブル */
+        .ugc-table { width: 100%; margin-top: 10px; border-collapse: collapse; font-size: 12px; }
+        .ugc-table th { text-align: left; color: #888; font-weight: normal; border-bottom: 1px solid #555; padding: 5px 0; font-size: 10px; width: 50%; }
+        .ugc-table td { padding: 8px 0; border-bottom: 1px solid #222; }
+        .ugc-count-val { color: #D4AF37; font-weight: bold; text-align: right; font-size: 11px; }
+        .ugc-bar-container { width: 100%; height: 4px; background: #333; margin-top: 4px; border-radius: 2px; }
+        .ugc-bar { height: 100%; background: #D4AF37; border-radius: 2px; }
+
+        /* 左下フッター */
+        .footer-label { position: absolute; bottom: 20px; left: 90px; color: #555; font-size: 10px; letter-spacing: 2px; font-weight: bold; pointer-events: none; }
+
+        /* 3Dラベル */
+        #labels-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; overflow: hidden; }
+        .node-label { position: absolute; transform: translate(-50%, -50%); color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.9); white-space: nowrap; transition: opacity 0.3s; pointer-events: none; }
+        
+        .dior-logo-text { font-size: 48px; letter-spacing: -1px; color: #fff; font-family: "Didot", serif; text-shadow: 0 4px 10px rgba(0,0,0,1); }
+        .dior-paris { font-size: 14px; letter-spacing: 4px; color: #ddd; font-family: sans-serif; font-weight: bold; text-align: center; text-shadow: 0 2px 5px rgba(0,0,0,1); }
+        .label-l2 { font-family: "Didot", serif; font-size: 24px; color: #fff; margin-top: 60px; text-shadow: 0 2px 8px rgba(0,0,0,1); letter-spacing: 1px; }
+        .label-l3 { font-family: "Didot", serif; font-size: 14px; color: #ddd; margin-top: 40px; text-shadow: 0 2px 4px rgba(0,0,0,1); letter-spacing: 0.5px; }
+        .ugc-count { font-size: 10px; color: #D4AF37; margin-left: 5px; font-family: sans-serif; font-weight: bold;}
+
+        /* ガイド */
+        .controls-guide { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 4px; color: #ccc; font-size: 11px; font-family: sans-serif; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+    <div id="viewer"></div>
+    <div id="labels-container"></div>
+
+    <div id="ui-layer">
+        <div id="left-sidebar">
+            <div class="icon-btn active" onclick="filterView('all')"><i class="fa-solid fa-globe"></i></div>
+            <div class="divider"></div>
+            <div class="icon-btn" onclick="filterView('dior-backstage')" title="Backstage"><i class="fa-solid fa-palette"></i></div>
+            <div class="icon-btn" onclick="filterView('dior-forever')" title="Forever"><i class="fa-solid fa-pump-soap"></i></div>
+            <div class="icon-btn" onclick="filterView('dior-lip-glow')" title="Lip Glow"><i class="fa-regular fa-kiss-wink-heart"></i></div>
+            <div class="icon-btn" onclick="filterView('dior-sank-couleurs')" title="5 Couleurs"><i class="fa-regular fa-eye"></i></div>
+            <div class="icon-btn" onclick="filterView('miss-dior-fragrance')" title="Miss Dior"><i class="fa-solid fa-spray-can-sparkles"></i></div>
+            <div class="icon-btn" onclick="filterView('dior-lip-maximizer')" title="Maximizer"><i class="fa-solid fa-droplet"></i></div>
+            <div class="icon-btn" onclick="filterView('dior-prestige')" title="Prestige"><i class="fa-solid fa-spa"></i></div>
+            <div class="icon-btn" onclick="filterView('dior-rouge-blush')" title="Rouge Blush"><i class="fa-solid fa-brush"></i></div>
+            <div class="icon-btn" onclick="filterView('rouge-dior')" title="Rouge Dior"><i class="fa-solid fa-marker"></i></div>
+            <div class="icon-btn" onclick="filterView('dior-snow')" title="Snow"><i class="fa-regular fa-snowflake"></i></div>
+            <div class="icon-btn" onclick="filterView('dior-capture-totale')" title="Capture Totale"><i class="fa-solid fa-flask"></i></div>
+            <div class="icon-btn" onclick="filterView('dior-sauvage')" title="Sauvage"><i class="fa-solid fa-wind"></i></div>
+            <div class="icon-btn" onclick="filterView('dior-addict-lipstick')" title="Addict Lipstick"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+            <div class="icon-btn" onclick="filterView('dior-jadore')" title="J'adore"><i class="fa-solid fa-gem"></i></div>
+            <div class="icon-btn" onclick="filterView('dior-lip-glow-oil')" title="Lip Glow Oil"><i class="fa-solid fa-oil-can"></i></div>
+        </div>
+
+        <div class="header-title">Dior Strategic Map: Product x Use Case</div>
+
+        <div id="info-card">
+            <div style="text-align: right; margin-bottom: 10px;"><i class="fa-solid fa-xmark" style="cursor:pointer; color:#666;" onclick="closePanel()"></i></div>
+            <h2 id="panel-title">Maison Dior</h2>
+            <span class="ugc-badge" id="panel-ugc" style="display:none;"></span>
+            <span class="badge" id="panel-layer">L1: CORE</span>
+            <div id="panel-content"><p>Select a node to view details.</p></div>
+        </div>
+
+        <div class="footer-label">PRODUCT SIZE REFLECTS UGC VOLUME</div>
+        <div class="controls-guide">Left Click: Rotate / Right Click: Pan / Scroll: Zoom</div>
+    </div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.152.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.152.0/examples/jsm/" } }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- 0. UGC統計数値データ (グラフ描画用) ---
+        const useCaseUgcCounts = {
+            "dior-backstage": { idol_collab_live: 200, gift_birthday_sister: 13, holiday_celestial: 180, personalcolor_blue: 66, everyday_glow: 385, self_reward_life_event: 12, cosme_otaku_collection: 101 },
+            "dior-forever": { summer_sebum: 231, winter_dry: 145, mask_life: 45, everyday_work: 69, date_closeup: 41, event_party: 38, spring_refresh: 93, self_reward: 7, gift_holiday: 22 },
+            "dior-lip-glow": { bareface: 9, everyday: 29, rescue: 9, layering: 42, first_dior: 2, pc_shade: 24, reward: 11, gift: 16, limited: 93 },
+            "dior-sank-couleurs": { today_look: 139, office: 19, holiday: 118, pc_match: 84, seasonal: 377, longuse: 25, reward: 13, first_dior: 0 },
+            "miss-dior-fragrance": { reward: 23, date: 5, gift: 37, memory: 20, body: 51, first: 1, office: 18, bottle: 34 },
+            "dior-lip-maximizer": { daily: 22, night: 13, winter: 51, topcoat: 20, gift: 114, mens: 8, repeat: 28, colors: 14 },
+            "dior-prestige": { bb: 108, sensitive: 26, night: 17, spa: 34, no_found: 5, influencer: 16, gift: 12, verify: 10 },
+            "dior-rouge-blush": { korean: 7, office: 3, pc: 15, holiday: 10, pairing: 9, spring: 72, pan: 1, review: 23 },
+            "rouge-dior": { nomikai: 31, mask: 20, onstage: 233, pc: 44, nude: 84, holiday: 227, first: 0, gift: 22 },
+            "dior-snow": { uv: 130, color: 21, brightening: 101, otan: 0, combo: 0, spring: 51, idol: 11, next: 44 },
+            "dior-capture-totale": { serum: 172, hyal: 90, ret: 43, line: 5, best: 16, pre: 15, mom: 2, gift: 2 },
+            "dior-sauvage": { daily: 2, date: 3, gift: 8, first: 0, skin: 58, collab: 0, bath: 8, travel: 2 },
+            "dior-addict-lipstick": { daily: 3, season: 41, case: 43, sensitive: 0, loss: 6, fomo: 0, first: 0, event: 10 },
+            "dior-jadore": { daily: 7, date: 1, bridal: 0, gift: 20, body: 13, tpo: 0, actress: 4, collect: 6 },
+            "dior-lip-glow-oil": { rescue: 0, topcoat: 0, clear: 2, hype: 0, bag: 2, repeat: 2, idol: 1, novelty: 1 }
+        };
+
+        // --- 1. データ詳細定義 (アップデート版) ---
+        const allProductsData = [
+        {
+  id: 'dior-backstage',
+  name: 'Dior Backstage',
+  sub: 'Face Palette',
+  type: 'actor',
+  ugc: 1294,
+  size: 0,
+  color: 0xffc0cb,
+  parent: 'l2_backstage',
+  useCases: [
+    {
+      key: 'idol_collab_live',
+      label: '推しコラボ・ライブ',
+      why: '推しと同じメイクで現場や写真に全力で挑みたい',
+      when: 'ライブ・現場・聖地巡礼の日',
+      positioning: {
+        competitors: 'YSL, CHANEL, rom&nd, NARS',
+        pop: 'ステージ照明やフラッシュの下でも発色とツヤがきれに出て、写真・動画で盛れること',
+        pod: '推しコラボやアイドルメイク文脈で指名されることが多く、「推しと同じパレット」を再現しやすい5~6色構成であること',
+        pof: '捨て色が多いパレットだと、日常の出番が少なく"現場専用"になりがちなこと'
+      }
+    },
+    {
+      key: 'gift_birthday_sister',
+      label: '誕プレ・ギフト',
+      why: '開けた瞬間に「可愛すぎる」と言ってもらえるアイシャドウを贈りたい',
+      when: '誕生日・記念日・合格祝い',
+      positioning: {
+        competitors: 'JILL STUART, COSME DECORTE, CHANEL',
+        pop: 'パレットを開けたときのビジュアルが華やかで、色も日常使いしやすくギフト映えすること',
+        pod: 'バックステージという名前とDiorらしいパッケージで、「プロっぽいの可愛い」ギフトとして語られやすいこと',
+        pof: '多色ゆえに使いこなせるか不安で、贈る相手のメイクレベルを少し選ぶこと'
+      }
+    },
+    {
+      key: 'holiday_celestial',
+      label: 'ホリデー・冬の星空',
+      why: '一年に一度のホリデーシーズンだけ、特別なきらきらメイクがしたい',
+      when: 'クリスマス・年末年始・ホリデーイベント',
+      positioning: {
+        competitors: 'SUQQU, ADDICTION, NARS, LUNASOL',
+        pop: 'ラメやメタリックな質感で、ホリデーらしい華やかさを簡単に出せること',
+        pod: 'ステージ用の世界観とリンクした配色で、「冬の星空」「イルミネーション」をそのまま目元に乗せたような表現ができると語られていること',
+        pof: 'ホリデー仕様のきらきらは、仕事や学校では浮きやすく出番が限定されがちなこと'
+      }
+    },
+    {
+      key: 'personalcolor_blue',
+      label: 'ブルベ・青みメイク',
+      why: 'ブルベ向けの青みカラーで、透明感を最大限に引き出したい',
+      when: 'パーソナルカラー診断後・ブルベメイク研究タイム',
+      positioning: {
+        competitors: 'ADDICTION, rom&nd, SUQQU, LUNASOL',
+        pop: 'ブルベ向けの青みピンク・ラベンダー・グレーなどが揃っていて、似合う配色を作りやすいこと',
+        pod: 'バックステージのブルベ向け品番は、青みとツヤのバランスが良く「ブルベ冬最強級」といったUGCで語られることが多いこと',
+        pof: 'イエベ肌がそのまま塗ると顔色が悪く見えやすく、色選びを誤ると扱いが難しいこと'
+      }
+    },
+    {
+      key: 'everyday_glow',
+      label: '大人の毎日ハイライト',
+      why: 'オフィスでも浮かず、さりげなく立体感とツヤを足したい',
+      when: '仕事・通勤メイク・ちょっとした外出',
+      positioning: {
+        competitors: 'Laura Mercier, CHANEL, NARS',
+        pop: 'ギラギラしすぎない上品なパール感で、TPOを選ばずに使えること',
+        pod: 'ハイライト・シェーディング・チークまで一通りのパレットで完結でき、「メイクが得意でなくても立体感が作れる」と評価されていること',
+        pof: '発色やツヤのコントロールに慣れていないと、やややりすぎメイクに見えがちなこと'
+      }
+    },
+    {
+      key: 'self_reward_life_event',
+      label: '大イベント後のご褒美',
+      why: '頑張った自分に、毎日眺めて気分が上がるパレットを贈りたい',
+      when: '昇進・転職・試験合格・大きな仕事の完了後',
+      positioning: {
+        competitors: 'Tom Ford, SUQQU, COSME DECORTE',
+        pop: '価格・ブランド・ビジュアルのどれをとっても「ちょっぴり背伸びしたご褒美」と感じられること',
+        pod: 'バックステージは"プロ用風"のイメージが強く、「自分へのご褒美としてメイクのステージを上げた感」を得やすいこと',
+        pof: '実用頻度が思ったほど高くないと、コスパ面で後悔しやすいこと'
+      }
+    },
+    {
+      key: 'cosme_otaku_collection',
+      label: 'コスメオタク収集',
+      why: 'パケ・ラメ・配色のすべてが可愛いパレットをコレクションしたい',
+      when: '新色・限定色の発売タイミング',
+      positioning: {
+        competitors: 'Tom Ford, NARS, Pat McGrath, HUDA BEAUTY',
+        pop: '並べて眺めたくなるデザインで、コレクション性が高いこと',
+        pod: 'バックステージは「鑑賞に並べる用」「スウォッチ撮影用」としてUGCに頻繁に登場し、"使う＋撮る"前提のコスメオタク向けパレットとして機能していること',
+        pof: '実用より所有欲に偏りがちで、使い切る前に次のパレットが欲しくなってしまうこと'
+      }
+    }
+  ]
+}
+,
+{
+  id: 'dior-lip-glow-oil',
+  name: 'Lip Glow Oil',
+  sub: 'Nourishing Oil',
+  type: 'actor',
+  ugc: 20,
+  size: 0,
+  color: 0xffd5e5,
+  parent: 'l2_addict',
+  useCases: [
+    {
+      key: 'rescue',
+      label: '冬の救助・ガチ保湿',
+      why: '皮むけ・縦ジワがひどいときでも、ツヤと血色感はあきらめたくない',
+      when: '真冬・冷房の効いたオフィスや車内・乾燥ピークの日',
+      positioning: {
+        competitors: 'Clarins Lip Comfort Oil, Kiehl’s, NIVEA, Curel',
+        pop: '高保湿系のリップオイル/バームで、荒れた唇を保護しながらツヤを与えられること',
+        pod: '「皮むけしててもこれ塗ると"ちゅんとリップしてる人"に見える」「保湿と映えが同時に叶う」といったUGCがあり、ガチ荒れ期でも"ケアと見た目"を両立させるレスキューアイテムとして語られていること',
+        pof: 'こってり質感ゆえマスクやカップへの付着が気になりやすく、こまめに使うと減りが早くコスパが気になること'
+      }
+    },
+    {
+      key: 'topcoat',
+      label: 'グロス・トップコート',
+      why: '手持ちの口紅やティントの上から重ねて、ちゅるんとした立体ツヤに仕上げたい',
+      when: 'メイクの仕上げ・写真撮影前・お直しタイム',
+      positioning: {
+        competitors: 'FENTY BEAUTY Gloss, RMK, CANMAKE, YSL',
+        pop: '既存のリップカラーに重ねることで、ツヤと保湿感をプラスして仕上がりを格上げできること',
+        pod: 'Lip Glow Oilは"厚みのあるガラスみたいなツヤ"と淡い色づきで「元のリップの色を殺さずに立体感だけ盛れる」とUGCで語られ、色変化より"仕上げ専用トップコート"として選ばれていること',
+        pof: 'ティントやマットリップとの組み合わせ次第では、時間経過でムラやヨレが出やすく、組み合わせの相性を見極める必要があること'
+      }
+    },
+    {
+      key: 'clear',
+      label: 'クリア・すっぴん＆ナイトケア',
+      why: '色をつけたくないけれど、ツヤと保湿膜だけ欲しい',
+      when: '就寝前・すっぴん外出・マスクの下・オフの日',
+      positioning: {
+        competitors: 'Vaseline, ワセリンリップ, 無色リップオイル/バーム全般',
+        pop: '無色でどんなシーンでも使いやすく、寝る前やすっぴん時にも気兼ねなく塗れること',
+        pod: '「見た目はデパコスなのに中身はほぼ無色の保湿オイル」「すっぴんでもテンションが上がるナイトリップ」としてUGCで語られ、ケアアイテムでありながら"持っているだけで気分が上がるクリアオイル"になっていること',
+        pof: 'ドラスト系の無色保湿リップと比べると明確な機能差は小さく、"気分とブランドにどこまで投資するか"をいう迷いが生じやすいこと'
+      }
+    },
+    {
+      key: 'hype',
+      label: 'バズ色・限定ハント',
+      why: 'SNSで話題になった色や限定色を追いかけて、コレクションしたい',
+      when: '新作・限定色発売日・SNSでバズった直後',
+      positioning: {
+        competitors: 'rom&nd, peripera, CANMAKE, CHANEL',
+        pop: 'SNSでスウォッチや着画が拡散され、「この色かわいい」「欲しい」と盛り上がる現象が起きること',
+        pod: 'Lip Glow Oilの一部カラーは「隠れ名品色」「再販希望」のようにUGCで名前が飛び交い、Addictラインの世界観込みで"推し色を追いかける遊び"が発生していること',
+        pof: '限定やバズ色は完売が早く、頑張って手に入れても似合わない/出番が少ないなど、"苦労の割に使わない"リスクが高いこと'
+      }
+    },
+    {
+      key: 'bag',
+      label: 'ポーチのお守り1本',
+      why: 'メイクが決まらない日も、とりあえずこれさえあれば何とかなる安心感が欲しい',
+      when: '朝バタバタの通勤前・出先での乾燥・リップだけさっと直したいとき',
+      positioning: {
+        competitors: 'NIVEA, DHC, CHANEL Rouge Coco Baume, Clarins',
+        pop: '鏡を見なくてもさっと塗れて、保湿とツヤだけ手早くチャージできる携帯リップであること',
+        pod: 'Lip Glow Oilは「とりあえずポーチに入れておく1本」「これがあれば最低限の保湿とツヤは確保できる」といったUGCがあり、"フルメイクしない日のお守りデパコス"として位置づけられていること',
+        pof: '小ぶりなわりに重さと存在感があるので、ミニポーチ派には荷物が増えたように感じられること'
+      }
+    },
+    {
+      key: 'repeat',
+      label: 'インフラ・ストック買い',
+      why: '他のリップも試すが、結局このオイルがないと不安になる',
+      when: '使い切り前・セールや免税店・在庫切れが怖くなったタイミング',
+      positioning: {
+        competitors: 'Clarins, Kiehl’s, CHANEL, YSL',
+        pop: '保湿・ツヤ・ブランド体験のバランスがよく、「なくなったら困る」と感じる日常インフラ的リップになること',
+        pod: 'UGCでは「すでに2本目」「ストックを切らさない」「他を浮気しても必ず戻る」といった"帰ってくる場所"として語られ、バームでもグロスでもない"自分基準のデフォルトオイルリップ"になっている点',
+        pof: '継続使用すると年間トータルコストがそれなりになり、ドラスト系で代用できないか迷いながらもやめられないジレンマが生まれやすいこと'
+      }
+    },
+    {
+      key: 'idol',
+      label: '推しお揃い・ジェンダーレス',
+      why: '推しや好きなインフルエンサーと同じものを持っていたい／性別問わず使いたい',
+      when: '推しが使用コスメを公開した直後・ライブ/イベント前・ペア使い',
+      positioning: {
+        competitors: 'YSL, rom&nd, FENTY BEAUTY, メンズ向け色付きリップ',
+        pop: 'クリア〜淡い発色で男女問わず使いやすく、「リップケア＋ほんのりツヤ」としてシェアしやすいこと',
+        pod: '透明感のあるパッケージとロゴが"いかにも女子コスメ"すぎず、UGCでも「彼氏/パートナーと共用」「推しと同じLip Glow Oilを持っている」といったジェンダーレス・お揃い文脈で語られていること',
+        pof: 'ツヤ感がしっかり出るため、マット志向やメンズの中には"テカりすぎて恥ずかしい"と感じる人もおり、全員にフィットするわけではないこと'
+      }
+    },
+    {
+      key: 'novelty',
+      label: 'ついで買い・ノベルティ要員',
+      why: 'セット購入や購入金額調整をするなら、実用性のある小物を足したい',
+      when: 'ノベルティやキットの条件金額まであと少しのとき・カウンター/ECでの会計前',
+      positioning: {
+        competitors: 'ミニ香水, ネイル, ポーチ, 他ブランドの小物アイテム',
+        pop: '「あと数千円でノベルティ」「キット条件」を満たすために、単価の近いアイテムを一つ足すという購買行動が起きること',
+        pod: 'Lip Glow Oilは「どうせ金額合わせするなら一番使うリップオイルを足す」という選ばれ方をしやすく、ノベルティ目的の"ついで買い"が、そのまま愛用品化していくUGCが多いこと',
+        pof: '条件達成のためになんとなく追加すると、手持ちリップが飽和して使い切れず、"ノベルティのために買ってしまった感"だけが残るリスクがあること'
+      }
+    }
+  ]
+}
+
+,
+{
+  id: 'dior-sank-couleurs',
+  name: '5 Couleurs',
+  sub: 'Eyeshadow',
+  type: 'actor',
+  ugc: 999,
+  size: 0,
+  color: 0xe3c5ff,
+  parent: 'l2_diorshow',
+  useCases: [
+    {
+      key: 'today_look',
+      label: '今日の主役メイク',
+      why: 'その日一番きれいに見える"主役メイク"を、迷わず完成させたい',
+      when: '撮影がある日・推し活現場・大事な予定の日',
+      positioning: {
+        competitors: 'SUQQU, LUNASOL, NARS, ADDICTION',
+        pop: '1パレットで立体感・締め色・ラメまで一通り揃っており、主役級のアイメイクを完結できること',
+        pod: '5色構成の中でベース〜締めまでのグラデ設計が緻密で、「どの組み合わせでもそれなりにきれいに仕上がる」とUGCで"王道パレット"として定評視されていること',
+        pof: '色がしっかり出る分、加減を間違えると濃くなりやすく、メイク初心者にはハードルが高いと感じられること'
+      }
+    },
+    {
+      key: 'office',
+      label: 'オフィス・きちんと見え',
+      why: '職場やオンライン会議でも浮かず、清潔感のある目元にしたい',
+      when: '平日の通勤・社内外ミーティング・オンライン会議',
+      positioning: {
+        competitors: 'LUNASOL, SHISEIDO, RMK, CHANEL',
+        pop: '肌なじみの良いブラウンやベージュを中心に、ビジネスシーンでも違和感のない発色と質感であること',
+        pod: 'ベーシックなブラウン系でも微妙なパール・質感違いで「きちんと感とさりげないおしゃれ感」の両立がしやすく、"オフィスでもDior感が出る"と語られていること',
+        pof: 'ラメ入りの色を選ぶと職場によっては派手と感じられることがあり、色選び・場所選びの見極めが必要なこと'
+      }
+    },
+    {
+      key: 'holiday',
+      label: 'ホリデー・イベントメイク',
+      why: '特別な日だけ、いつもよりきらきらで華やかな目元にしたい',
+      when: 'クリスマス・年末年始・ホリデーイベント・推し活現場',
+      positioning: {
+        competitors: 'NARS, ADDICTION, SUQQU, CLIO',
+        pop: 'ラメやメタリックな質感で、普段より華やかな印象のアイメイクが単純に作れること',
+        pod: 'ホリデー限定色や限定デザインが毎年話題になり、「箱とケースも含めてイベントの一部」としてUGCで写真共有されるほど"儀式感のあるパレット"になっていること',
+        pof: 'ラメや濃い色の構成だと普段使いが難しく、ホリデー以外の出番が減りがちなこと'
+      }
+    },
+    {
+      key: 'pc_match',
+      label: 'PC診断後・似合う色探し',
+      why: 'パーソナルカラーに合う、失敗しない王道アイパレットが欲しい',
+      when: 'パーソナルカラー診断後・コスメカウンター相談時・口コミ検索タイム',
+      positioning: {
+        competitors: 'rom&nd, SUQQU, LUNASOL, CEZANNE',
+        pop: 'ブルベ/イエベ別にすすめられる品番があり、診断結果をもとに色を選びやすいこと',
+        pod: '「ブルベなら〇〇番」「イエベ秋なら〇〇番」といった具体的な色番がUGC上で半ばテンプレート化しており、PCガイド付き"王道デパコスパレット"として機能していること',
+        pof: '同じパレットでも肌色やまぶたの色素で発色が変わり、ネットのおすすめ通りに買っても合わないケースが一定数あること'
+      }
+    },
+    {
+      key: 'seasonal',
+      label: '季節感アップデート',
+      why: '服や気温に合わせて、季節らしさのある目元に衣替えしたい',
+      when: '春夏秋冬の新作シーズン・衣替えのタイミング',
+      positioning: {
+        competitors: 'SHISEIDO, RMK, ADDICTION, SUQQU',
+        pop: '春はピンクやコーラル、秋はボルドーやテラコッタなど、季節をイメージしたカラー構成であること',
+        pod: 'ランウェイやメゾンのシーズンテーマと連動した色出しが多く、「このシーズンのDiorの世界観をそのまま目元で楽しめる」と語られていること',
+        pof: 'シーズン感が強い色は翌年以降使いづらく感じる人もいて、長期的には無難な定番パレットに劣ること'
+      }
+    },
+    {
+      key: 'longuse',
+      label: '底見え・長期愛用',
+      why: '何年も使い続けられる定番の"相棒パレット"が欲しい',
+      when: 'コスメ整理・断捨離・メイク見直しのタイミング',
+      positioning: {
+        competitors: 'LUNASOL, CANMAKE, CLIO, Excel',
+        pop: '毎日使っても飽きにくい配色で、減りが見える＝愛用の証として満足度が高いこと',
+        pod: '「初めて底見えしたデパコス」「何年も使っている5 Couleurs」という"殿堂入り系UGC"が多く、デパコスの中でも"古参レギュラー"として語られることが多いこと',
+        pof: '古いパレットを長く使いすぎると衛生面・粉質の劣化が気になり、買い替えタイミングを逃しやすいこと'
+      }
+    },
+    {
+      key: 'reward',
+      label: '散財ご褒美パレット',
+      why: 'ボーナスや大きなイベントの節目に、自分が本当の欲しいパレットを迎えたい',
+      when: 'ボーナス・昇進・転職・推しのライブ遠征前',
+      positioning: {
+        competitors: 'Tom Ford, SUQQU, CHANEL, NARS',
+        pop: '価格・ブランド・仕上がりのすべてが「背伸びしたご褒美」と感じられ、購入体験そのものがモチベーションになること',
+        pod: '「いつか欲しい5 Couleursをついに買った」という"憧れ系UGC"が多く、手に入れた瞬間からSNSに上げたくなる象徴的なパレットになっていること',
+        pof: '使用頻度が想定より低いと"高いのに使ってない"罪悪感に変わりやすいこと'
+      }
+    },
+    {
+      key: 'first_dior',
+      label: '初Dior・ブランド入門',
+      why: '"いかにもDiorらしい"コスメでブランドデビューしたい',
+      when: '初めてのカウンター・誕生日・記念日・デパコスデビュー',
+      positioning: {
+        competitors: 'Rouge Dior, Miss Dior（フレグランス）, CHANELアイシャドウ',
+        pop: 'ブランドの世界観が分かりやすく、持っているだけでテンションが上がる象徴的プロダクトであること',
+        pod: '「Diorといえばこのアイシャドウ」としてカウンターでもUGCでも頻繁に挙げられ、ブランドイメージと直結した"看板パレット"として認知されていること',
+        pof: '価格・粉質・発色すべてがしっかり"デパコス仕様"のため、気軽なお試しというよりは覚悟のいる1品になりがちなこと'
+      }
+    }
+  ]
+}
+,
+{
+  id: 'miss-dior-fragrance',
+  name: 'Miss Dior',
+  sub: 'Fragrance',
+  type: 'actor',
+  ugc: 773,
+  size: 0,
+  color: 0xffe4f1,
+  parent: 'l2_missdior',
+  useCases: [
+    {
+      key: 'reward',
+      label: '自分へのご褒美',
+      why: '仕事や生活を頑張った自分を、香りで切り替えてあげたい',
+      when: '仕事終わり・節目のタイミング・気分転換したい夜',
+      positioning: {
+        competitors: 'YSL, CHANEL, PRADA, Chloe',
+        pop: 'ボトルを手に取ってひと吹きするだけで、気分をリセットしてくれる"ご褒美感"のある香りであること',
+        pod: '華やかなフローラルと上品な甘さのバランスがよく、「落ち込んだ日でもこれをつけると少し頑張れる」といった"心のスイッチ香水"としてMiss Diorが指名で語られること',
+        pof: '香りがしっかり残るタイプのため、気分転換目的でつけすぎると周囲には重く感じられることがある'
+      }
+    },
+    {
+      key: 'date',
+      label: 'デート・恋愛モード',
+      why: '近づいたときにふわっと香って、女っぽさをさりげなく演出したい',
+      when: 'デート・記念日ディナー・特別な約束のある日',
+      positioning: {
+        competitors: 'PRADA, YSL, Chloe, GUCCI',
+        pop: '清潔感のあるフローラルとやわらかい甘さで、相手にとって心地よい"好印象の香り"として機能すること',
+        pod: '「彼氏に褒められた香り」「これをつけて初デートに行った」など、ミス ディオールが恋愛エピソードとセットでUGCに頻出しており、"王道モテ香水"の文脈を強く持っていること',
+        pof: '甘さや華やかさが好みと合わない相手にはやや"香水感が強い"と捉えられる可能性がある'
+      }
+    },
+    {
+      key: 'gift',
+      label: 'ギフト鉄板フレグランス',
+      why: '好みが完全には分からない相手にも、外れずらしい香水ギフトを贈りたい',
+      when: '誕生日・クリスマス・記念日・母の日・就職祝い',
+      positioning: {
+        competitors: 'CHANEL, Chloe, Tiffany, JILL STUART',
+        pop: 'ブランド名とボトルデザインから特別感が伝わりやすく、「ちゃんとした感」が出るフレグランスギフトであること',
+        pod: '"Miss Dior"という名前とボトルのリボンが祝福感を強く持っており、「香りがまだ分からない相手にはとりあえずミス ディオール」というUGCが多い"鉄板ポジショニング"になっていること',
+        pof: '香水ギフト全般に言えるが、相手がもともと香りをあまり使わない人だと、飾られるだけで終わるリスクがある'
+      }
+    },
+    {
+      key: 'memory',
+      label: '思い出・記憶を刻む香り',
+      why: '人生の節目や特別な期間の記憶を、香りと一緒に残しておきたい',
+      when: '卒業・就職・結婚・失恋からのリスタートなどの節目',
+      positioning: {
+        competitors: 'YSL, CHANEL, Chloe',
+        pop: '香りが記憶と強く結びつきやすく、「あの頃を思い出す香水」として長く手元に置かれやすいこと',
+        pod: '「初めての彼氏と付き合っていたときの香り」「社会人なりたての頃の自分の匂い」など、Miss Diorが人生の特定フェーズとセットで回想されるUGCが多く、"タイムカプセル的フレグランス"として機能していること',
+        pof: '一度つらい出来事と匂いの記憶が強く結びつくと、その後つけづらくなるリスクがある'
+      }
+    },
+    {
+      key: 'body',
+      label: '全身コーデ・レイヤリング',
+      why: '香水だけでなく、ボディケアも含めて香りをさりげなくまといたい',
+      when: 'お出かけ前・リラックスタイム・特別な日の前夜',
+      positioning: {
+        competitors: 'JILL STUART, L’OCCITANE, SABON',
+        pop: 'シャワージェル・ボディミルク・ヘアミストなどラインアイテムを重ねることで、ふわっとまとったような全身の香りコーデができること',
+        pod: 'Miss Diorはフレグランス以外のボディアイテムでも世界観が統一されており、「香水は重めにして、ボディとヘアでほのかに香らせる」などのレイヤリングUGCが多いこと',
+        pof: 'ライン使いすると香りの総量が増えすぎて、人によっては強く感じやすくなることに加え、トータルでの価格も高くなりがちであること'
+      }
+    },
+    {
+      key: 'first',
+      label: '初めてのちゃんとした香水',
+      why: '子供っぽすぎず、大人すぎもしない"最初の一本"が欲しい',
+      when: '20歳前後・就職前後・初めてのデパコスカウンター',
+      positioning: {
+        competitors: 'LANVIN, Chloe, JILL STUART, MARC JACOBS',
+        pop: 'きちんとしたフレグランスらしさがありつつ、若い世代でも取り入れやすい甘さと清潔感のバランスであること',
+        pod: '「初めてのデパコス香水がミス ディオールだった」という体験談が多く、"香水デビューの王道"としてUGC上で半ばテンプレ的存在になっていること',
+        pof: '香水デビューとしては価格がやや高めで、量も多いため使い切れるか不安に感じる人もいる'
+      }
+    },
+    {
+      key: 'office',
+      label: 'オフィス・日常づかい',
+      why: '職場でも浮かず、自分だけさりげなく気分が上がる香りが欲しい',
+      when: '通勤・オフィスワーク・来客対応のある日',
+      positioning: {
+        competitors: 'Chloe, LANVIN, PRADA, HERMES',
+        pop: 'つけ方や量を調整すれば、オフィスでも使える穏やかさと清潔感を備えていること',
+        pod: '特にブルーミング ブーケなどの軽やかなフランカーが「職場用のミス ディオール」として指名されることが多く、"オンタイム専用Miss Dior"という文脈がUGCで形成されていること',
+        pof: '一歩間違えると香りが強く出やすいため、オフィスフロアによっては香害と感じられるリスクがあるため、量やつける場所に配慮が必要なこと'
+      }
+    },
+    {
+      key: 'bottle',
+      label: 'ボトル推し・インテリア',
+      why: '香りだけでなく、部屋やドレッサーを彩るオブジェとしても楽しみたい',
+      when: '部屋の模様替え・ドレッサー整理・写真撮影',
+      positioning: {
+        competitors: 'Tiffany, CHANEL, Chloe, GUCCI',
+        pop: '置いているだけで写真映えするボトルデザインで、ドレッサーや机の上を華やかにしてくれること',
+        pod: 'Miss Dior特有の千鳥格子モチーフとリボンのボトルが「飾って眺めるだけでも満足」「撮影小物として優秀」と多くのUGCで語られ、"インテリア前挺の香水"としても選ばれていること',
+        pof: '見た目目的で選ぶと、香りが好みに合わなかった場合ほとんど使われず"観賞用ボトル"になってしまう可能性がある'
+      }
+    }
+  ]
+}
+,
+{
+  id: 'dior-lip-maximizer',
+  name: 'Lip Maximizer',
+  sub: 'Plumper',
+  type: 'actor',
+  ugc: 645,
+  size: 0,
+  color: 0xff9ed1,
+  parent: 'l2_addict',
+  useCases: [
+    {
+      key: 'daily',
+      label: '毎日ぷるツヤ',
+      why: 'ひと塗りでボリューム感のあるぷるぷる唇にしたい',
+      when: '通勤・通学・お出かけ前のメイク仕上げ',
+      positioning: {
+        competitors: 'Clarins, BUXOM, FENTY BEAUTY, YSL',
+        pop: 'うるおいとツヤを与え、日中も乾燥しにくい心地よさをキープできること',
+        pod: '「ベタベタではなくむちっとしたツヤと程よい清涼感」で、プランパー特有のヒリヒリ感が苦手な人からも支持される"毎日使えるプランパー"として語られていること',
+        pof: '香りや清涼感が苦手な人にとっては、毎日使うには好みが分かれやすいこと'
+      }
+    },
+    {
+      key: 'night',
+      label: '夜用ケア',
+      why: '寝ているあいだに唇のコンディションを立て直したい',
+      when: '就寝前・リップメイクオフ後',
+      positioning: {
+        competitors: 'Vaseline, NIVEA, Kiehl’s, LANEIGE',
+        pop: '厚めに重ねることで保湿膜のように唇を包み込み、翌朝まで乾燥しにくくすること',
+        pod: '「日中のプランパーだけでなく、夜もこれでケアしている」というUGCが多く、メイクアイテムでありながら"ナイトパック的な役割"を兼ねている点',
+        pof: '専用ナイトマスクや医薬品リップと比べると、ガチ保湿というより"心地よさ＋見た目"寄りで、極度の荒れには物足りない場合もあること'
+      }
+    },
+    {
+      key: 'winter',
+      label: '冬マスクハブ',
+      why: '冬の乾燥シーズンでも縦ジワを目立たせず、ツヤツヤな状態を保ちたい',
+      when: '真冬・冷房の効いたオフィスや教室・乾燥が気になる日',
+      positioning: {
+        competitors: 'NIVEA, Curel, Kiehl’s, CHANEL',
+        pop: 'こまめに塗り直すことで、乾燥しやすい季節でも縦ジワをふっくら埋めてくれること',
+        pod: '「冬場はこれがないと不安」「とりあえずこれをポーチに入れておけば安心」といった"冬のインフラリップ"としての言及が多く、ケアとメイクの両方を1本で担っていること',
+        pof: '頻繁に塗り直すと減りが早く、ドラスト系リップと比べてコスパが気になりやすいこと'
+      }
+    },
+    {
+      key: 'topcoat',
+      label: 'グロストップコート',
+      why: '手持ちの口紅にツヤとボリューム感を足して、仕上がりを格上げしたい',
+      when: 'メイクの最後・写真を撮る前・出先でのメイク直し',
+      positioning: {
+        competitors: '一色グロス, FENTY BEAUTY, RMK, CANMAKE',
+        pop: '手持ちのマットリップやティントの上から重ねて、立体感とツヤを追加できること',
+        pod: '薄めのミルキー発色〜クリアな色まで揃っていて、「上に重ねてもベタっと色がにごりにくく、元の色を活かしながらボリューム感だけ盛れる」点',
+        pof: 'リキッドティントなどとの組み合わせ次第では、時間が経過でムラやヨレを起こしやすく、相性を見極める必要があること'
+      }
+    },
+    {
+      key: 'gift',
+      label: 'ホリデー・ギフト',
+      why: 'コスメ好きにもライト層にも喜ばれる"ハズさないリップ"を贈りたい',
+      when: 'クリスマス・誕生日・ちょっとしたお礼ギフト',
+      positioning: {
+        competitors: 'JILL STUART, CHANEL, YSL, COSME DECORTE',
+        pop: 'ブランド名と見た目のリッチさからギフト映えし、使い切りやすい実用アイテムでもあること',
+        pod: 'ホリデーキットや限定セットに組み込まれる頻度が高く、「Diorのリップと言えばまずはマキシマイザー」という認知が強いため、相手の色好みが分からなくても選びやすいギフトとしてUGCに出現していること',
+        pof: 'プランパー特有の清涼感に好みが分かれるため、苦手な相手にはややチャレンジなギフトになること'
+      }
+    },
+    {
+      key: 'mens',
+      label: 'ジェンダーレス・シェア使い',
+      why: '性別問わず、さりげなく唇のケアとツヤ出しをしたい',
+      when: 'カップルや夫婦でのシェア・ステージや撮影前のメイク',
+      positioning: {
+        competitors: 'メンズ用リップ, BULK HOMME, SHISEIDO MEN',
+        pop: '保湿とツヤで唇のコンディションを整え、写真やステージでも映える口元をつくれること',
+        pod: '「彼氏/夫と共用」「推しと同じマキシマイザー」という文脈で、ジェンダーをまたいだシェア使用UGCが見られ、パッケージが"いかにも女子コスメ"すぎない点もシェアの後押しになっていること',
+        pof: 'ツヤ感と香りがしっかりあるため、ナチュラル志向の男性には派手・甘いと感じられる可能性があり、全員にヒットするわけではないこと'
+      }
+    },
+    {
+      key: 'repeat',
+      label: 'マイ定番・ストック買い',
+      why: '他のリップも試すけれど、最終的にこれに戻ってきてしまう安心感が欲しい',
+      when: '使い切り・セール・免税店・在庫切れが不安なとき',
+      positioning: {
+        competitors: 'Clarins, Kiehl’s, CHANEL, YSL',
+        pop: '使い切る前に次の1本を用意したくなるほど、仕上がり・保湿・ブランド体験のバランスが良いこと',
+        pod: '「何本リピートしたかわからない」「他に変気しても結局マキシマイザーに戻る」といったUGCが非常に多く、"リップケア兼グロスのデフォルト値"として定着していること',
+        pof: '長年使い続けると、「いつもの安心感」ゆえに新鮮さやワクワク感が薄れてしまうこと'
+      }
+    },
+    {
+      key: 'colors',
+      label: 'カラー沼・新色ハント',
+      why: '定番色に加えて、ニュアンス違いの色味でムードを変えたい',
+      when: '新作・限定色発売日・シーズンごとのメイク更新タイミング',
+      positioning: {
+        competitors: 'rom&nd, FENTY BEAUTY, NARS, YSL',
+        pop: '透明感のある発色で、ベージュ・ピンク・コーラル・ラメ入りなどニュアンス違いを集める楽しさがあること',
+        pod: '「01はベース、他色は気分で使い分け」「ポーチに複数本入れている」といった、同シリーズで色違い・質感違いを揃えるUGCが多く、"マキシマイザー沼"という言い方までされていること',
+        pof: '色違いで複数本集めると総額が高くなりやすく、プチプラ多色買いと比べて罪悪感が出やすいこと'
+      }
+    }
+  ]
+}
+,
+{
+  id: 'dior-prestige',
+  name: 'Dior Prestige',
+  sub: 'Luxury',
+  type: 'actor',
+  ugc: 621,
+  size: 0,
+  color: 0xffe3ec,
+  parent: 'l2_prestige',
+  useCases: [
+    {
+      key: 'bb',
+      label: 'チートBB・時短ベース',
+      why: 'スキンケアからベースまで、1本で「ちゃんと仕上がってる肌」に見せたい',
+      when: '忙しい朝・在宅勤務の日・休日のワンマイル外出',
+      positioning: {
+        competitors: 'SHISEIDO, LANCOME, COSME DECORTE, Cle de Peau',
+        pop: '美容液・UV・下地・ファンデの機能をまとめ、短時間でベースが完成すること',
+        pod: '高級スキンケアラインと同じローズ由来成分を含み、「時短しても"プレステージ肌"に見えるBB」として、単なる時短ではなく"高級スキンケアの延長のベース"として語られていること',
+        pof: 'カバー力や色展開はフルフライトのファンデほど細かく選べないため、仕上がりにこだわりのある人には物足りない場合があること'
+      }
+    },
+    {
+      key: 'sensitive',
+      label: '敏感肌・ゆらぎ期のベース',
+      why: '肌がゆらいでいる時期でも、刺激感を抑えつつきれいな肌に見せたい',
+      when: '花粉シーズン・季節の変わり目・生理前後・体調不良時',
+      positioning: {
+        competitors: 'La Roche-Posay, Curel, dプログラム, IPSA',
+        pop: '乾燥や赤みが出やすい状態でも、つっぱり感が少なく日中を過ごせること',
+        pod: '「刺激強めのファンデは無理な時期でも、プレステージのベースなら肌が落ち着く」といった、"スキンケア寄りベース"としての信頼UGCが存在すること',
+        pof: '本来敏感肌専用ラインではないため、全ての敏感肌に合うわけではなく、合わない人にとっては価格に対してリスクが高く感じられること'
+      }
+    },
+    {
+      key: 'night',
+      label: 'ご褒美ナイトスキンケア',
+      why: '週末や特別な夜に、スキンケアをフルラインでじっくり堪能したい',
+      when: '週末の夜・大事な予定の前夜・気持ちを立て直したいタイミング',
+      positioning: {
+        competitors: 'Cle de Peau, SK-II, POLA, COSME DECORTE AQ',
+        pop: 'テクスチャー・香り・ボトルデザインまで含めて、時間をかけるスキンケアの満足感を味わえること',
+        pod: 'ダマスクローズを核にした香りと世界観が"儀式感"を強く持っており、「塗るだけでラグジュアリーラインの気分転換になる」として、結果だけでなく"プロセス価値"が評価されていること',
+        pof: '毎日ライン使いするには価格負担が大きく、ご褒美頻度とのバランスに悩みやすいこと'
+      }
+    },
+    {
+      key: 'spa',
+      label: 'おうちスパ・ディープクレンジング',
+      why: '家にいながら、肌も気分もリセットできるスパ級ケアをしたい',
+      when: '肌のざらつき・くすみが気になる日・リラックスしたい休日',
+      positioning: {
+        competitors: 'SABON, L’OCCITANE, THREE, Omorovicza',
+        pop: '洗顔・マスク・ローションなどで、ざらつきやくすみをオフしながら肌をやわらかく整えられること',
+        pod: 'プレステージの洗顔・マスクは「落とすケアなのに肌がふっくらする」「洗い流したあともローズの余韻が残る」といった声が多く、"クレンジング＝作業"ではなく"ご褒美体験"に変えている点',
+        pof: '落とすアイテムに高単価を投資することへの心理的ハードルが高く、「リピートするかは迷う」という声も出やすいこと'
+      }
+    },
+    {
+      key: 'no_found',
+      label: '脱ファンデ・スキンケア集中期',
+      why: 'ファンデーションに頼るのではなく、素肌そのものを底上げしたい',
+      when: 'ベースメイクを見直したい時期・マスクオフが増えるタイミング',
+      positioning: {
+        competitors: 'LANCOME, POLA, SK-II, IPSA',
+        pop: '継続使用でキメやハリの変化を実感し、ファンデを薄くしたりやめたりするきっかけになること',
+        pod: '「プレステージを使い始めてから、カバー力の高いファンデに頼らなくなった」というUGCが見られ、ベースメイクの考え方そのものを変える"入り口スキンケア"として機能していること',
+        pof: '変化がゆるやかな分、短期的な効果を求める人には物足りなく感じられ、途中でやめてしまうリスクがあること'
+      }
+    },
+    {
+      key: 'influencer',
+      label: 'インフルエンサー・美容オタク検証',
+      why: 'ハイエンドスキンケアの"違い"を、自分の肌で確かめてみたい',
+      when: 'ベスコス特集・SNSでバズった後・誕生日前やボーナスの前後',
+      positioning: {
+        competitors: 'POLA B.A, Cle de Peau, COSME DECORTE AQ, LA MER',
+        pop: 'デパコス最高峰ラインのひとつとして比較・検証の対象にされることが多く、成分やテクスチャーが評論の俎上にのぼること',
+        pod: 'インフルエンサーや美容編集者の「本気レビュー」で名前が挙がることが多く、"憧れ高級ライン"の中でも"実証に使った"というUGC比率が比較的高いこと',
+        pof: '期待値が高くなりすぎる分、効果実感がマイルドな場合「値段ほどインパクトはなかった」と評価が割れやすいこと'
+      }
+    },
+    {
+      key: 'gift',
+      label: '親世代・大切な人への本気ギフト',
+      why: '年上の家族やお世話になっている人に、「本当に良いもの」を贈りたい',
+      when: '母の日・還暦・退職祝い・特別な記念日',
+      positioning: {
+        competitors: 'COSME DECORTE AQ, Cle de Peau, SK-II, POLA',
+        pop: '価格帯とブランドストーリーから、「自分ではなかなか買いづらいけど、もらったら嬉しい」ギフトとしての納得度が高いこと',
+        pod: 'ローズを中心とした香りとテクスチャーが"大人の女性らしさ"に直結し、「母と一緒に使う」「親子でライン共有」といった世代をまたいだUGCが見られる点',
+        pof: 'スキンタイプや香りの好みが合わないと、高価なだけに使われず棚に飾るだけになるリスクがあること'
+      }
+    },
+    {
+      key: 'verify',
+      label: '高級ライン横断のガチ比較',
+      why: '複数ブランドの最高峰ラインを実際に使い比べて、違いを自分の言葉で語りたい',
+      when: 'スキンケア沼深層・レポート投稿前・ベスコス記事作成時',
+      positioning: {
+        competitors: 'POLA B.A, Cle de Peau, LA MER, COSME DECORTE AQ, SK-II',
+        pop: '価格帯・世界観・成分いずれもトップクラスで、他ブランドの最高峰ラインと並べて比較検証されること',
+        pod: '「同価格帯の中では香りと使用感の満足度が頭ひとつ抜けている」「ローズ好きならPrestige一択」など、使い心地面での差別化コメントが多く、"機能＋感性価値"の両方で評価されやすいこと',
+        pof: '比較軸が多くなるほど、効果の優位性をはっきり感じにくくなり、「香りや好みの問題」に落ち着きがちで投資判断が難しくなること'
+      }
+    }
+  ]
+}
+,
+{
+  id: 'dior-rouge-blush',
+  name: 'Rouge Blush',
+  sub: 'Cheek',
+  type: 'actor',
+  ugc: 524,
+  size: 0,
+  color: 0xffc9d2,
+  parent: 'l2_diorshow',
+  useCases: [
+    {
+      key: 'korean',
+      label: '韓国風グラデほっぺ',
+      why: 'ふんわりとした血色とツヤで、韓国風の立体ほっぺをつくりたい',
+      when: '推し活現場・撮影会・デートやお出かけの日',
+      positioning: {
+        competitors: 'rom&nd, 3CE, CLIO, NARS',
+        pop: '粉飛びしにくく、重ねてもムラになりにくいテククスチャーで、グラデーションが作りやすいこと',
+        pod: 'Rouge Blushの一部カラーは"ほぼハイライト級のツヤ"と"ふんわりマット"が同居しており、「これ1個で韓国っぽいほっぺが完成する」とUGCで語られることが多い点',
+        pof: '発色が繊細な分、韓国コスメのような"がっつり色を見せる"メイクをした人には物足りなく感じられること'
+      }
+    },
+    {
+      key: 'office',
+      label: 'オフィス・きちんと血色',
+      why: '職場でも浮かず、顔色だけさりげなく良く見せたい',
+      when: '平日の通勤・商談・オンライン会議',
+      positioning: {
+        competitors: 'CEZANNE, CANMAKE, LUNASOL, CHANEL',
+        pop: 'ベージュ〜ピンク系で、やりすぎ感のない自然な血色を足せること',
+        pod: 'シアーすぎず濃すぎない"絶妙な一筆"で、「とりあえずRouge Blushを乗せておけば顔が完成する」とUGCで語られる"保険チーク"としてのUGCが多い点',
+        pof: 'ブラシの入れ方によってはパールや色が出すぎて、コンサバ環境では少し派手と感じられることがあること'
+      }
+    },
+    {
+      key: 'pc',
+      label: 'PC診断後のガチ憧れチーク',
+      why: 'パーソナルカラーに合った、一生物のほっぺを見つけたい',
+      when: 'パーソナルカラー診断後・コスメカウンター相談・イベント前',
+      positioning: {
+        competitors: 'Excel, SUQQU, NARS, ADDICTION',
+        pop: 'ブルベ／イエベ別に推されるカラーがあり、自分に合う色を選びやすいこと',
+        pod: '「神色がブルベ夏優勝」「イエベ春の神チーク」など、具体的な色番がUGCで半ばテンプレ化しており、"PC別指名買いチーク"としての存在感が強いこと',
+        pof: 'オンラインスウォッチと実際の肌とのギャップが出やすく、PCどおりに選んでも"好みと違う"リスクがあること'
+      }
+    },
+    {
+      key: 'holiday',
+      label: 'ホリデー・限定刻印',
+      why: '特別感のある刻印やカラーで、冬のメイクをアップデートしたい',
+      when: 'クリスマス・年末年始・ホリデーコフレの時期',
+      positioning: {
+        competitors: 'NARS, CHANEL, YSL, JILL STUART',
+        pop: '限定デザインやラメ入りカラーで、ホリデーシーズンらしい華やかさを頬に足せること',
+        pod: 'Rouge Blushの限定刻印や限定色は「使うのがもったいない」「観賞用と使用用で2個欲しい」とUGCで語られ、"ホリデー儀式チーク"として毎年チェック対象になっていること',
+        pof: '限定ゆえにストックできず、気に入っても同じものをリピートできない不安が常につきまとうこと'
+      }
+    },
+    {
+      key: 'pairing',
+      label: 'アイシャドウと相棒セット',
+      why: 'アイメイクに合わせ浮かない、ちょうどいいチークを合わせたい',
+      when: 'フルメイクの日・撮影前・新しいアイパレット購入時',
+      positioning: {
+        competitors: 'LUNASOL, SUQQU, NARS, ADDICTION',
+        pop: 'ブラウン・ピンク・コーラルなど、アイシャドウのトーンに合わせた色が揃っていて、全顔のバランスを取りやすいこと',
+        pod: '5 Couleursや他Diorアイシャドウと組み合わせた具体的なレシピUGCが多く、「DiorのアイメイクにはRouge Blushを合わせる」という"同ブランド内ペアリング文化"が成立している点',
+        pof: 'アイメイクとの組み合わせ前提で色を選ぶと、単品で使ったときに地味・物足りなく感じることもあること'
+      }
+    },
+    {
+      key: 'spring',
+      label: '春コスメ・季節感チーク',
+      why: '春らしいやわらかさと高揚感を、頬の色で演出したい',
+      when: '春先の衣替え・新生活・花見やイベントシーズン',
+      positioning: {
+        competitors: 'ADDICTION, CANMAKE, CLINIQUE, SUQQU',
+        pop: '桜色ピンクやコーラルなど、春のファッションと相性の良いカラーが揃っていること',
+        pod: 'Rouge Blushの一部色は「春コスメの代表」「毎年春になると使いたくなる」といった季節ワードとセットで語られ、春メイクの定番としてUGCで繰り返し登場していること',
+        pof: '春らしい淡色は、日焼け肌や濃いメイクと合わせると存在感が薄くなりがちなこと'
+      }
+    },
+    {
+      key: 'pan',
+      label: '底見え・毎日スタメン',
+      why: '毎日使っても飽きず、つい手に取ってしまう"相棒チーク"が欲しい',
+      when: 'メイクのマンネリ期・コスメ断捨離・ポーチ整理',
+      positioning: {
+        competitors: 'CANMAKE, CEZANNE, NARS, LUNASOL',
+        pop: '粉質が安定していて毎日使いやすく、減りが見えることで"使い切る満足感"が得られること',
+        pod: '「デパコスなのに底見えした」「2個目に突入したRouge Blush」など、価格帯を超えて"リアルに使い続けている証拠UGC"が目立つ点',
+        pof: 'お気に入り色に依存しすぎて、他のチークを全く使わなくなる＝コスメの幅が広がらないというジレンマが生じやすいこと'
+      }
+    },
+    {
+      key: 'review',
+      label: 'お墨付き・プロ＆口コミ安心感',
+      why: '失敗したくないので、プロや口コミで評価の高いチークを選びたい',
+      when: '新しいチークを買う前・ベスコス記事/動画を見たあと',
+      positioning: {
+        competitors: 'COSME DECORTE, NARS, SUQQU, CHANEL',
+        pop: '雑誌・SNS・クチコミサイトで一定以上の評価があり、"買っても後悔しにくい"と感じられること',
+        pod: 'メイクアップアーティストやインフルエンサーが「色の調整がしやすい」「塗りすぎても失敗しにくい」と技術面からも推しており、"プロお墨付きの調整チーク"としてUGCで勧められやすいこと',
+        pof: '王道でバランスが良いがゆえに、"尖った個性"や"激変感"を求める層には平凡しすぎて感じられること'
+      }
+    }
+  ]
+}
+,
+{
+  id: 'rouge-dior',
+  name: 'Rouge Dior',
+  sub: 'Lipstick',
+  type: 'actor',
+  ugc: 465,
+  size: 0,
+  color: 0xf5a3b5,
+  parent: 'l2_rouge',
+  useCases: [
+    {
+      key: 'nomikai',
+      label: '飲み会リップ',
+      why: '食べたり飲んだりしても、顔色が沈まないように色をキープしたい',
+      when: '飲み会・女子会・会食・二次会まで続く長丁場の日',
+      positioning: {
+        competitors: 'NARS, YSL, ESTEE LAUDER, rom&nd',
+        pop: '飲食後も完全には落ちきらず、顔色が悪く見えない程度に色が残ってくれること',
+        pod: 'Rouge Diorは「落ち方がきれい」「全部は落ちず輪郭にほどよく残る」といったUGCが多く、べったり残るティントではなく"上品にフェードしていくロングラスティング"として評価されていること',
+        pof: 'マット寄りのカラーをしっかリ塗ると、飲み会終盤には乾燥感や縦ジワが目立つと感じる人もいること'
+      }
+    },
+    {
+      key: 'mask',
+      label: 'マスクプルーフ',
+      why: 'マスクを外した瞬間に色が全部なくなっている…という状態を避けたい',
+      when: '通勤・ライブ・テーマパーク・長時間マスク着用のシーン',
+      positioning: {
+        competitors: 'TIRTIR, PERIPERA, MAYBELLINE, CHANEL',
+        pop: 'マスクの内側にはある程度つきつつも、完全に素の唇に戻らない程度の色持ちがあること',
+        pod: 'Rouge Diorの一部質感（マット/ルージュフォーエヴァー系など）は、「ティントが苦手でも使えるマスク向きリップ」としてUGCに登場し、色持ちとつけ心地のバランスで選ばれていること',
+        pof: '完全無移りではないため、白マスクや布マスクでは多少の色移りは許容が必要なこと'
+      }
+    },
+    {
+      key: 'onstage',
+      label: '多幸感ベージュ',
+      why: 'オンオフ両方で使えて、顔色がふわっと明るく見えるベージュが欲しい',
+      when: 'デート・面談・少しかしこまった場・推し活現場',
+      positioning: {
+        competitors: 'CHANEL, SUQQU, HERA, YSL',
+        pop: '肌なじみが良く、ベージュでも顔色が沈まず"きちんと感"と"抜け感"を両立できること',
+        pod: 'Rouge Diorのベージュ系は「ベージュなのに多幸感が出る」「一気に女っぽくなる」といったコメントが多く、血色感とツヤのバランスで"多幸感ベージュ"として特別視されていること',
+        pof: 'パーソナルカラーや元の唇の色によっては、くすんで見えたり"リップ塗ってない人"に見えやすいこと'
+      }
+    },
+    {
+      key: 'pc',
+      label: 'PCガチ憧れ本命カラー',
+      why: 'パーソナルカラーにどんぴしゃで、ここぞという日に頼れる1本を持ちたい',
+      when: 'PC診断後・勝負メイクの日・写真をたくさん撮るイベント',
+      positioning: {
+        competitors: 'rom&nd, NARS, YSL, SUQQU',
+        pop: 'ブルベ/イエベ・季節タイプごとに推される色番があり、自分に合う色を選びやすいこと',
+        pod: '「神色が自分の優勝リップ」「一生手放したくないRouge Dior」といった、色番指名のUGCが多く、同シリーズ内でも"運命の1本"が見つかったというストーリーが語られやすいこと',
+        pof: '質感や発色がしっかりしているため、パーソナルカラーどこおりでも"自分のテンションとは違う"と感じる場合があること'
+      }
+    },
+    {
+      key: 'nude',
+      label: '粘膜ベージュ・就活/会議用',
+      why: '主張しすぎず、きちんと感だけを足せるヌードカラーが欲しい',
+      when: '会議・プレゼン・就活・面接・フォーマルな場',
+      positioning: {
+        competitors: 'HERA, SHISEIDO, RMK, KANEBO',
+        pop: '唇の色に近いベージュ〜ローズベージュで、控えめながらも"きちんとメイクしている感"を出せること',
+        pod: 'Rouge Diorのヌード系は、「粘膜カラーなのに老けて見えない」「就活メイクにちょうどいい」といったUGCがあり、ビジネス〜フォーマル文脈での信頼度が高いこと',
+        pof: '元の唇の色が濃い人は、1本だけではカバーしきれずコンシーラーや下地が必要になる場合があること'
+      }
+    },
+    {
+      key: 'holiday',
+      label: 'シークイン・パーティリップ',
+      why: 'いつもより華やかで、ホリデーの写真に映えるきらきらリップが欲しい',
+      when: 'クリスマス・年末年始・パーティ・ライブ・特別なイベント',
+      positioning: {
+        competitors: 'NARS, YSL, CHANEL, FENTY BEAUTY',
+        pop: 'ラメやパールが入った質感で、一塗りでイベント感のある口元になること',
+        pod: 'Rouge Diorのシークインやホリデー限定色は、「これ1本でホリデーメイクになる」「箱から出す瞬間も含めてテンションが上がる」といったUGCが多く、"儀式用リップ"として位置づけられていること',
+        pof: '日常使いには派手すぎる色・質感も多く、シーズンが終わると出番が減りがちなこと'
+      }
+    },
+    {
+      key: 'first',
+      label: '大人デビュー・ちゃんとした口紅',
+      why: 'ティントやグロスではなく、"大人の口紅"を1本持っておきたい',
+      when: '初任給・就職/転職・誕生日・節目のタイミング',
+      positioning: {
+        competitors: 'YSL, CHANEL, GUERLAIN, JILL STUART',
+        pop: 'パッケージ・ブランドストーリー・カウンター体験を通じて、"きちんとした大人のリップ"を手に入れた実感を味わわせてくれること',
+        pod: 'Rouge Diorは「初めてカウンターでタッチアップしてもらったリップ」「大人の階段の象徴」としてUGCに登場する頻度が高く、"Diorの口紅＝大人デビューの記号"になっていること',
+        pof: 'デイリーには少し重厚で、普段ラフなメイクしかしない人には"特別な日のみ専用"になりやすいこと'
+      }
+    },
+    {
+      key: 'gift',
+      label: 'ギフト・本命リップ',
+      why: '相手の特別な日に、きちんとした"本命リップ"をプレゼントしたい',
+      when: '誕生日・クリスマス・記念日・プロポーズ/結婚前後',
+      positioning: {
+        competitors: 'YSL, CHANEL, GUERLAIN, TOM FORD',
+        pop: 'ブランド力と見た目の華やかさがありつつ、きちんとメイクアイテムとして使い切れる実用性を持っていること',
+        pod: 'ケース刻印や色番メッセージなどのカスタマイズ性も含め、「Rouge Diorを買う＝本命感」という文脈が強く、ペアリップや"あなたのために選んだ1色"としてUGCでストーリー化されていること',
+        pof: '好みに違う質感（マットが苦手・ツヤが苦手など）を選んでしまうと、せっかくの本命ギフトが"観賞用"になってしまうリスクがあること'
+      }
+    }
+  ]
+}
+,
+{
+  id: 'dior-snow',
+  name: 'Dior Snow',
+  sub: 'Brightening',
+  type: 'actor',
+  ugc: 313,
+  size: 0,
+  color: 0xdaf2ff,
+  parent: 'l2_snow',
+  useCases: [
+    {
+      key: 'uv',
+      label: '真夏のUV・美白ケア',
+      why: '絶対焼きたくないけれど、トーンもきれいに見せたい',
+      when: '真夏の通勤・屋外イベント・推し活遠征・旅行',
+      positioning: {
+        competitors: 'ANESSA, SHISEIDO, HAKU, La Roche-Posay',
+        pop: '高いUVカット力でしっかり守りつつ、日中のくすみや色ムラを目立ちにくくしてくれること',
+        pod: '"美白ラインのUV"として、UV防御とブライトニング発想がセットで設計されており、「日焼け止めなのに下地レベルで肌が明るく見える」といったUGCが多いこと',
+        pof: 'ドラストUVに比べて価格が高めで、体全身に惜しみなく使うには心理的ハードルがあること'
+      }
+    },
+    {
+      key: 'color',
+      label: 'カラー下地で色補正',
+      why: '赤み・くすみ・黄色くすみなど、自分の悩みに合わせてトーンを補正したい',
+      when: 'ベースメイク前・くすみが気になる朝・オンライン会議前',
+      positioning: {
+        competitors: 'RMK, PAUL & JOE, IPSA, CEZANNE',
+        pop: 'ピンクやブルーなどのカラーで、くすみや血色感をコントロールしながら、ファンデのノリを良くしてくれること',
+        pod: 'Snowのカラー下地は「透明感が出るのに白浮きしない」「補正と美白ケアが同時にできる」と言われ、"トーンアップ＋美白ライン"の一石二鳥ポジションをとっていること',
+        pof: '盛りすぎると顔全体がトーンアップしすぎて首との色差が出やすく、量の調整に注意が必要なこと'
+      }
+    },
+    {
+      key: 'brightening',
+      label: '本気ブライトニング長期戦',
+      why: '一時的なトーンアップではなく、素肌の透明感そのものを底上げしたい',
+      when: 'シミ・くすみが気になり始めた頃・季節の変わり目・紫外腺ダメージが気になる時期',
+      positioning: {
+        competitors: 'SHISEIDO, HAKU, SK-II, POLA',
+        pop: '継続使用でシミ・そばかすやくすみなどの印象を和らげ、肌全体の明るさや均一感を目指せること',
+        pod: '「Snowでライン組んでから、ベースが一段明るくなった」「透明感オタクはとりあえずSnow一式」というUGCが存在し、"透明感特化のフルライン"としてオタク的に語られていること',
+        pof: '即効性よりも蓄積重視な前フリなので、短期間で効果を求めると物足りなく感じ、途中でやめてしまうリスクがあること'
+      }
+    },
+    {
+      key: 'otan',
+      label: '透明感オタクのフルライン使い',
+      why: 'ベースもスキンケアも、すべて"透明感"に全振りしたい',
+      when: '透明感メイク研究中・推し活用"儚げ肌"づくり・自撮り強化期間',
+      positioning: {
+        competitors: 'La Roche-Posay, IPSA, ALBION, SUQQU',
+        pop: '化粧水・美容液・UV・下地などラインでそろえることで、メイク前から透明感の土台を仕込めること',
+        pod: '「Snowでライン組んでからは、ベースが一段明るくなった」「透明感オタクはとりあえずSnow一式」というUGCが存在し、"透明感特化のフルライン"としてオタク的に語られていること',
+        pof: 'フルラインで揃えると金銭的な負担が大きく、2ブランドのアイテムを試しづらくなる"ロックイン感"が生まれやすいこと'
+      }
+    },
+    {
+      key: 'combo',
+      label: 'Snow×2ベースのレイヤリング',
+      why: 'Snowのトーンアップ力に、2ブランドの強みも掛け合わせて"ベスト肌"を作りたい',
+      when: '撮影・イベント・ライブ参戦・長時間おでかけの日',
+      positioning: {
+        competitors: '各種トーンアップ下地・クッションファンデ全般',
+        pop: 'Snowで仕込んだ透明感の上に、カバー力やツヤ感に優れた2ブランドベースを重ねて、仕上がりを微調整できること',
+        pod: '「下地はSnow、ファンデは2ブランド」といったレシピUGCが多く、"透明感の土台はSnowに任せる"という役割分担が明確にされていること',
+        pof: 'レイヤリングアイテムが増えるほど、メイク時間が延びてヨレやすくなる・コスパが悪くなるなどのトレードオフが生じること'
+      }
+    },
+    {
+      key: 'spring',
+      label: '春から始めるUV・ブライトニング強化',
+      why: '本格的に焼ける前から、春のうちに透明感対策をスタートしたい',
+      when: '春先・UVケア切り替え時期・衣替えのタイミング',
+      positioning: {
+        competitors: 'HAKU, SHISEIDO, LANCOME, La Roche-Posay',
+        pop: '春の陽そうに見える日差しの時期から、しっかりとUVと美白ケアを同時に始められること',
+        pod: '「春からSnowで仕込んでおくと夏のダメージが違う気がする」といったUGCがあり、"夏本番前の先手ブライトニング"という位置づけで語られていること',
+        pof: '紫外線がまだ弱い時期にフルラインで揃えると、コストや手間に対してオーバースペックと感じる人もいること'
+      }
+    },
+    {
+      key: 'idol',
+      label: '推し・アイドル肌再現',
+      why: '推しや憧れのモデルが使っている"透明感ベース"を真似したい',
+      when: '雑誌・SNSで使用コスメを見たあと・推し活現場前・撮影会前',
+      positioning: {
+        competitors: 'CHANEL, NARS, HERA, rom&nd',
+        pop: 'ステージや写真で透けるような肌を演出やすく、ライトに当たったときの肌の明るさがきれに出ること',
+        pod: 'Snowはアイドルやモデルの使用コスメとして紹介されることがあり、「推しが使ってたからSnowでベースを真似した」というUGCが一定数見られ、"憧れ肌のレシピの一部"として機能していること',
+        pof: 'もともとの肌質・色とは異なるため、推しと同じアイテムを使ってもまったく同じ仕上がりにはならないギャップが生じやすいこと'
+      }
+    },
+    {
+      key: 'next',
+      label: '次のSnow・リニューアル乗り換え',
+      why: '廃盤やリニューアルで手持ちSnowからどう乗り換えるか迷っている',
+      when: 'リニューアル発表・在庫切れ・お気に入り色の終売タイミング',
+      positioning: {
+        competitors: 'リニューアル後の新Snow, 2社ブライトニングライン',
+        pop: '新旧や2ブランドを比較しながら、自分の求めているトーンや質感に近いアイテムを探す必要があること',
+        pod: 'Snowは世代ごとに処方や世界観が変わっており、「旧Snow難民」「新Snowに乗り換えたレポ」など、同一シリーズ内での"歴代比較UGC"が生まれやすいブランドであること',
+        pof: 'お気に入りだった旧バージョンの在庫が尽きて、廃盤に同じ使い心地は再現できず、乗り換え先を探すまでの試行錯誤コストが発生すること'
+      }
+    }
+  ]
+}
+,
+{
+  id: 'dior-sauvage',
+  name: 'Sauvage',
+  sub: 'Men\'s',
+  type: 'actor',
+  ugc: 155,
+  size: 0,
+  color: 0x98c5ff,
+  parent: 'l2_sauvage',
+  useCases: [
+    {
+      key: 'daily',
+      label: '毎日シグネチャー',
+      why: 'オンオフどちらの日でも、「これが自分の匂い」と思える一本を持ちたい',
+      when: '出勤前・休日の親お出かけ前・毎朝のルーティン',
+      positioning: {
+        competitors: 'Bleu de Chanel, Dior Homme, PRADA Luna Rossa, Acqua di Giò',
+        pop: 'ビジネスからプライベートまで幅広いシーンで使えて、清潔感と男らしさの両方を感じさせること',
+        pod: '「とりあえずソヴァージュをつけておけば間違いない」といったUGCが多く、世界的ベストセラーとして"失敗しない毎日香水"の代名詞になっていること',
+        pof: '街中や職場で香り被りしやすく、「人と被りたくない」層にはオリジナリティに欠けると感じられること'
+      }
+    },
+    {
+      key: 'date',
+      label: 'フェロモン・色気演出',
+      why: '近づいたときにふわっと香って、色気と余韻をさりげなく出したい',
+      when: '夜デート・バーやレストランでの食事・ちょっと背伸びした約束のある日',
+      positioning: {
+        competitors: 'Bvlgari Man, YSL La Nuit de L’Homme, Tom Ford Noir',
+        pop: '若さとスパイシーさのバランスがよく、重すぎないセクシーさで相手に好印象を与えられること',
+        pod: 'ソヴァージュ特有のフレッシュなシトラスとアンバーウッドな余韻が「清潔感と色気が同居している」とUGCで語られ、"デート向き鉄板メンズ香水"として指名されていること',
+        pof: 'つける量や距離を誤ると、狭い空間では香りが強く出すぎて相手にとって重く感じられるリスクがあること'
+      }
+    },
+    {
+      key: 'gift',
+      label: 'パートナーへのギフト',
+      why: '香水に詳しくない相手にも、外れにくい「良い匂い」を贈りたい',
+      when: '誕生日・記念日・バレンタイン・クリスマス',
+      positioning: {
+        competitors: 'CHANEL（Bleu de Chanel）, Bvlgari Pour Homme, HERMES Terre d’Hermès',
+        pop: 'ブランド名と香りの分かりやすさから、「ちゃんとした選んだ感」が伝わる鉄板ギフトであること',
+        pod: '女性側のUGCでは「迷ったらとりあえずソヴァージュ」「香水に疎い彼にも受け入れられた」といった投稿が多く、香水慣れしていない男性にも受け入れられやすい"安心ギフト枠"になっていること',
+        pof: '香りが強めな印象もあるため、そもそも香水をほとんど使わないタイプの相手には、使われずに棚に置かれるがちになるリスクがあること'
+      }
+    },
+    {
+      key: 'first',
+      label: '初ハイエンド香水',
+      why: 'ボディスプレーではなく、ちゃんとしたハイブランド香水を1本持ちたい',
+      when: '就職・転職・大学入学・節目のタイミング',
+      positioning: {
+        competitors: 'Bleu de Chanel, Dior Homme, GUCCI Guilty, ARMANI Code',
+        pop: '価格・入手しやすさ・万人受けのバランスが良く、「初めてのちゃんとした香水」に選びやすいこと',
+        pod: '「最初のデパコス香水がソヴァージュだった」「一昔ソヴァージュから始めた」というUGCが多く、メンズフレグランス入門の"通過儀礼的1本"になっていること',
+        pof: '香りの好みが偏ってくると「定番すぎてつまらない」「もっと自分らしい香りが欲しい」と感じられ、次の香水への乗り換え前段階になりやすいこと'
+      }
+    },
+    {
+      key: 'skin',
+      label: 'メンズスキンケア・グルーミング',
+      why: '複雑なステップは苦手だけど、最低限の肌ケアと身だしなみは整えたい',
+      when: 'ひげ剃り後・シャワー後・スキンケアを見直したくなったタイミング',
+      positioning: {
+        competitors: 'Bulk Homme, SHISEIDO MEN, Aesop, LAB SERIES',
+        pop: '洗顔・モイスチャライザー・アフターシェーブなど、男性向けにシンプルなステップで纏めること',
+        pod: 'ソヴァージュの香りをまとったフェイス&ボディケアアイテムにより、「スキンケア＝面倒」ではなく"かっこいいルーティン"をして続けやすいという文脈でUGCに登場すること',
+        pof: '香り付きスキンケアのため、無香料派や敏感肌の人にはハードルが高く、2のフレグランスと香りがケンカしやすいこと'
+      }
+    },
+    {
+      key: 'collab',
+      label: '自分磨き・イメージ刷新',
+      why: '服装や髪型と合わせて、「ちゃんとした気を使っている人」という印象に変えたい',
+      when: 'イメチェン期・新生活・自己投資モードのとき',
+      positioning: {
+        competitors: 'PRADA Luna Rossa, YSL, Tom Ford, nicheブランド全般',
+        pop: '香りをきっかけに身だしなみやファッションへの意識を高め、「清潔感がある男性」という印象作りをサポートできること',
+        pod: 'ブランドストーリー（アンバサダーや世界観）も含め、「ソヴァージュ＝ワイルドだけど洗練された男性像」としてSNSで語られており、"こうなりたい自分像"の象徴として選ばれやすいこと',
+        pof: '香りのキャラクタ一がはっきりしているため、本人のキャラや服装とマッチしないと"香りだけ浮いている"ように見えてしまう可能性があること'
+      }
+    },
+    {
+      key: 'bath',
+      label: 'ご褒美バス&ボディ',
+      why: '一日の終わりに、好みな香りに包まれてリラックスしたい',
+      when: '疲れた日の夜・週末のリセット時間・特別な予定の前日',
+      positioning: {
+        competitors: 'L’OCCITANE, SABON, Jo Malone, Aesop',
+        pop: 'シャワージェルやボディケアを通じて、バスルームで香りを楽しみながら心身ともにリフレッシュできること',
+        pod: 'ソヴァージュのボディラインは「お風呂上がりもほんのりソヴァージュが香る」「香水前の仕込みとして最高」とUGCで語られ、香水だけではなく"ライフスタイル全体の（世界観"を楽しむ使われ方をしていること',
+        pof: 'ドラストのバスアイテムに比べると単価が高く、毎日たっぷリ使うにはコスパ面で躊躇しやすいこと'
+      }
+    },
+    {
+      key: 'travel',
+      label: '旅行・ジム用携帯フレグランス',
+      why: '出先や旅先でも、身だしなみの仕上げとして好きな香りをさっとまといたい',
+      when: '出張・旅行・ジムやサウナ帰り・仕事終わりの予定前',
+      positioning: {
+        competitors: 'ソリッドパフューム, ロールオン香水, ボディスプレー各種',
+        pop: '小さめボトルやトラベルスプレーで持ち運びしやすく、必要なときにサッとつけ直せること',
+        pod: '「ミニサイズのソヴァージュをポーチに常備」「ジムロッカーに入れている」といったUGCがあり、"どこでも安心して使える万能香り"をして、携帯前提のフレグランスに選ばれていること',
+        pof: '機内持ち込み制限や香りNGの職場・ホテル環境など、シーンによっては使いづらく、せっかく持っていてても出番が制限されること'
+      }
+    }
+  ]
+}
+,
+{
+  id: 'dior-addict-lipstick',
+  name: 'Addict Lipstick',
+  sub: 'Shine',
+  type: 'actor',
+  ugc: 153,
+  size: 0,
+  color: 0xffb0c9,
+  parent: 'l2_addict',
+  useCases: [
+    {
+      key: 'daily',
+      label: '毎日ヌードリップ',
+      why: '通勤・通学でも浮かず、ひと塗りで顔がちゃっと整うベージュ/MLBBが欲しい',
+      when: '平日の朝・オンライン会議前・ちょっとしたお出かけ',
+      positioning: {
+        competitors: 'CHANEL, YSL, RMK, HERA',
+        pop: '薄膜の発色とツヤで、唇だけ浮かず顔全体のバランスを整えてくれること',
+        pod: 'Addict特有の「うるツヤなのに厚ぼったく見えない」ツヤ感と、MLBB系でも顔色が沈みにくい色設計が評価され、「毎日ついつい手に取るデイリー用デパコス」としてUGCで指名されている点',
+        pof: '発色がシアーなため、元の唇の色が濃い人は何度か重ね塗りが必要で、"時間のわりに変化が少ない"を感じる人がいること'
+      }
+    },
+    {
+      key: 'season',
+      label: '季節新色・トレンド更新',
+      why: 'ベーシックな手持ちに加え、シーズンごとの"今っぽい色"を1本だけ足したい',
+      when: '春夏秋冬の新作発表・衣替え・メイクのマンネリを感じたタイミング',
+      positioning: {
+        competitors: 'RMK, SUQQU, NARS, rom&nd',
+        pop: 'シーズントレンドを反映したカラーが登場し、その時々のファッションと合わせて楽しめれること',
+        pod: 'Addictシリーズはシアーで透け感があるため、「攻めた色でも自分の唇の色とミックスされて意外と使いやすい」「トレンド色を失敗しにくい」といったUGCがあり、"トレンドお試し口紅"として位置づけられている点',
+        pof: '限定色やシーズン色は在庫が読みづらく、気に入っても翌年には同じ色が手に入りにくい不安があること'
+      }
+    },
+    {
+      key: 'case',
+      label: 'ケース着せ替え・パケ買い',
+      why: 'アクセサリー感覚で持ち歩ける、見た目重視の1本が欲しい',
+      when: '新作ケース発売時・ホリデー・気分を変えたいタイミング',
+      positioning: {
+        competitors: 'YSL, JILL STUART, GUERLAIN',
+        pop: 'ブランドロゴやメタル感のあるデザインで、ポーチから出したときの"見られてうれしい"高揚感があること',
+        pod: 'Addictはケースを着せ替えできる仕様で、「今日はこのケースにこの色を合わせる」といったUGCが多く、「色だけでなく見た目もスタイリングするリップ」としてコレクション的に楽しまれている点',
+        pof: 'ケースと本体を複数持ち始めると総額が高くなり、「中身の色よりケース沼になっている」と感じてしまうことがあること'
+      }
+    },
+    {
+      key: 'sensitive',
+      label: '敏感・荒れやすい人の乗り換え先',
+      why: 'マットリップやティントで荒れた唇でも、負担感少なく色を楽しみたい',
+      when: '唇のコンディションが不安定な時期・2ブランドからの乗り換え検討時',
+      positioning: {
+        competitors: 'Kiehl’s, CLINIQUE, ドラスト色付きバーム各種',
+        pop: 'なめらかな塗心地とツヤで、乾燥しやすい唇でも比較的ストレスなく使えること',
+        pod: '「2の口紅は荒れるのにAddictは大丈夫だった」「ティント疲れからの避難先」といったUGCがあり、攻めたティントの合間に使う"休憩リップ"として選ばれている点（※個人差前提）',
+        pof: 'あくまでメイクアップアイテムであり、医薬品リップほど保湿力はないため、ひどく荒れているときの"ガチ保湿"には別アイテムが必要なこと'
+      }
+    },
+    {
+      key: 'loss',
+      label: '推し色ロス・代替色探し',
+      why: '廃盤やリニューアルでなくなった"神色"の代わりをどうして見つけたい',
+      when: '色番終売・リニューアル・断捨離や手持ち整理のタイミング',
+      positioning: {
+        competitors: '同シリーズ別色, 2ブランドの近似色, プチプラ含む',
+        pop: '手持ちの中から似た色を探したり、2ブランドを含めて"近い色"を比較検討する必要があること',
+        pod: 'Addictの一部色番は「伝説色」「名残惜しい神色」としてUGCで語り継がれ、使用後もスウォッチや比較画像とともに"ロスコミュニティ"を形成しやすい点',
+        pof: '完全に同じ色・質感は再現できず、似た色をいくつも買ってしまって結局満足できない"沼"にはまりやすいこと'
+      }
+    },
+    {
+      key: 'fomo',
+      label: '発売ダッシュ・争奪戦',
+      why: 'SNSでバズった新色や限定コラボを、発売直後に確実に手に入れたい',
+      when: '発売日・先行予約開始・オンラインストア更新直後',
+      positioning: {
+        competitors: 'YSL, NARS, rom&nd, CANMAKE',
+        pop: '話題色や限定パッケージがSNSで拡散され、「欲しい！」という気持ちが発売前から高まること',
+        pod: 'Addictの一部限定色は「数分で完売」「店頭は行列」といったFOMO（取り残される不安）を生むほどの人気を集め、「発売日に駆け込みに行くだ」「オンライン張り付き」といったUGCが多い点',
+        pof: '躍起になって入手しても、自分には似合わなかった/使うシーンが少ないと"苦労の割に出番がない"をして後悔が生まれやすいこと'
+      }
+    },
+    {
+      key: 'first',
+      label: '初デパコス・ご褒美リップ',
+      why: '自分をちょっぴり格上げしてくれる、"ちゃんとした一本"を手にれたい',
+      when: '誕生日・ボーナス・就職/転職・節目のタイミング',
+      positioning: {
+        competitors: 'JILL STUART, YSL, CHANEL, RMK',
+        pop: 'カウンター体験やパッケージも含めて、「デパコスを買った」という儀式感が味わえること',
+        pod: 'Addictは発色がやさしくデイリー使いしやすいため、「初めてのデパコスリップとして背伸びしすぎない」「買ったあともちゃん使える最初の一本」としてUGCに頻出している点',
+        pof: 'ティントに慣れている層には色持ちが物足りなく、せっかくのご褒美が"思ったより普通だった"と感じられる可能性があること'
+      }
+    },
+    {
+      key: 'event',
+      label: 'カラー体験・イベント＆タッチアップ',
+      why: '普段自分では選ばない色にも挑戦して、新しい似合う色を見つけたい',
+      when: 'ブランドイベント・カウンターメイク・友達との買い者',
+      positioning: {
+        competitors: '各ブランドカウンターのリップ全般, イベント限定色',
+        pop: 'BAさんのタッチアップやイベントで、複数色を試しながら自分に合うカラーを探せること',
+        pod: 'Addictは質感が軽く失敗しにくいため、「普段選ばない色もお試ししやすい」「イベントで塗ってもらった色にハマってそのまま購入した」といったUGCが多く、"カラー診断の実践台"として機能している点',
+        pof: 'イベントの高揚感の中で普段使わない色を購入し、日常ではほとんど出番がなくなってしまう"イベント買い後悔"が起こりやすいこと'
+      }
+    }
+  ]
+}
+,
+{
+  id: 'dior-jadore',
+  name: 'J\'adore',
+  sub: 'Fragrance',
+  type: 'actor',
+  ugc: 152,
+  size: 0,
+  color: 0xfff0c9,
+  parent: 'l2_jadore',
+  useCases: [
+    {
+      key: 'daily',
+      label: '毎日エレガント',
+      why: '仕事の日でも、ほんのり女性らしさと上品さをまとっていたい',
+      when: '平日の通勤・オフィス・ちょっとした外出',
+      positioning: {
+        competitors: 'Chloe, Miss Dior, CHANEL Chance, Tiffany',
+        pop: '清潔感がありつつフェミニンで、オフィスでも浮かない"毎日使える香水"であること',
+        pod: 'J’adoreは白い花ブーケの明るいフローラルが特徴で、「大人っぽいのにキツくない」「女将さんみたくな雰囲気」としてUGCが多く、日常でも"少しだけ格上げしてくれるエレガント香水"として指名されていること',
+        pof: '香水をつ毛慣れていない人には、ワンプッシュでもやや華やかに感じられ、量の調整やつける場所にコツがいること'
+      }
+    },
+    {
+      key: 'date',
+      label: 'デート・記念日フレグランス',
+      why: '近づいたときにふんわり香って、女っぽさを自然に演出したい',
+      when: 'デート・記念日ディナー・特別な約束のある夜',
+      positioning: {
+        competitors: 'YSL Mon Paris, Miss Dior, CHANEL Coco Mademoiselle, GUCCI Bloom',
+        pop: '甘さとフェミニンさ、清潔感のバランスが良く、相手に「いい匂い」と感じてもらいやすい香りであること',
+        pod: 'J’adoreは色気だけでなく、「きちんと自分を整えてきた感」が出る華やかさがあり、「デートや記念日は必ずこれ」といったUGCが多く、"大人の本命デート香水"としてのポジションを持っていること',
+        pof: '甘さやフローラルが苦手な相手には、少しクラシックで重く感じられる可能性があること'
+      }
+    },
+    {
+      key: 'bridal',
+      label: 'ブライダル・晴れの日',
+      why: 'ドレス姿に合う、華やかで写真映えする香りをまといたい',
+      when: '結婚式・前撮り・披露宴・二次会',
+      positioning: {
+        competitors: 'Tiffany, CHANEL No.5, Miss Dior, Chloe',
+        pop: 'ドレスやブーケと世界観が合う華やかな香りで、特別な1日を演出してくれること',
+        pod: 'ゴールドのボトルと白い花ブーケの香りが"花嫁"のイメージと重なり、「一生に一度の香水としてJ’adoreを選んだ」「ウエディングのために買った」というUGCが見られ、晴れの日専用香水として強い象徴性を持っていること',
+        pof: '記憶と結びつきやすい分、結婚式後に別の場面で使うと"あの日の気持ち"を思い出しすぎてしまい、日常使いしづらく感じられる人もいること'
+      }
+    },
+    {
+      key: 'gift',
+      label: '大人ギフト・世代をまたぐ一本',
+      why: '母親や年上の女性など、大人の女性に外れにくい香りを贈りたい',
+      when: '母の日・誕生日・還暦祝い・記念日ギフト',
+      positioning: {
+        competitors: 'CHANEL No.5, CHANEL Coco Mademoiselle, Tiffany, Miss Dior',
+        pop: 'ブランド名とボトルデザインから高級感が伝わり、「自分ではなかなか買わないけどもらったら嬉しい」ギフトになりやすいこと',
+        pod: 'J’adoreは"Diorを代表する女性の香り"として定着しており、「母と共有している香り」「親子で代々使っている」など世代をまたいだUGCも見られ、大人の女性への"王道香水ギフト"として語られていること',
+        pof: 'フローラルが苦手な人やミニマルな香りが好きな人には、クラシックで重めに感じられ、せっかくのギフトが飾られるだけになるリスクがあること'
+      }
+    },
+    {
+      key: 'body',
+      label: '全身レイヤリング',
+      why: '香水だけでなく、ボディやヘアまでトータルで香りをまといたい',
+      when: '特別な予定の前夜・休日のリラックスタイム・お出かけ前の仕込み',
+      positioning: {
+        competitors: 'Jo Malone, JILL STUART, L’OCCITANE, SABON',
+        pop: 'ボディクリームやヘアミストなどを組み合わせ、香りの強さやレイヤーを調整できること',
+        pod: 'J’adoreはフレグランス以外のボディラインも充実しており、「香水は軽めにしてボディクリームでふんわり香らせる」「ヘアミストで後ろ姿だけ香りを出」といった具体的なレイヤリングUGCが多く見られること',
+        pof: 'ライン使いすると香りのボリュームが上がりすぎて、TPOや周囲によっては強く感じられやすいこと、トータル金額も高くなること'
+      }
+    },
+    {
+      key: 'tpo',
+      label: 'シーン別フランカー使い分け',
+      why: '仕事・休日・夜など、シーンに合わせて濃度やニュアンスを使い分けたい',
+      when: 'オフィス・デート・イベント・旅行などTPOを意識したいとき',
+      positioning: {
+        competitors: '自ブランドの他フランカー, 他社フランカー全般',
+        pop: 'オードトワレ／オードパルファン／インテンスなど濃度や香りの深みが選べ、場面によって強さを調整できること',
+        pod: 'J’adoreは"オフィス用にライト・夜用にインテンス"など、フランカーごとの使い分けUGCが多く、ひとつ香り世界観の中でTPOをコントロールする"ファミリー運用"が定着していること',
+        pof: '複数種類を揃え始めると、自分でもどれをどの日に使うか迷いやすく、使い分けが煩雑になりがちなこと'
+      }
+    },
+    {
+      key: 'actress',
+      label: '女優モードスイッチ',
+      why: 'いつもの自分から一段ギアを上げて、"主役感"のあるモードに入りたい',
+      when: '舞台・プレゼン・ライブ参戦・ここ一番の本番前',
+      positioning: {
+        competitors: 'Tom Ford, YSL Libre, CHANEL No.5, nicheフレグランス全般',
+        pop: '香りをまとうことで気持ちを切り替え、自信やオーラを後押ししてくれること',
+        pod: 'J’adoreは広告イメージも含め「ゴールドドレスの女優」「喝采としたヒロイン」の象徴として語られ、「本番の日は必ずJ’adore」というUGCが多く、メンタルスイッチ用フレグランスとして独自のアセットを持っていること',
+        pof: '日常使いには少し"決めすぎ"に感じる人もおり、ハレの日用でボトルを分けたくなってしまうこと'
+      }
+    },
+    {
+      key: 'collect',
+      label: 'ボトルコレクション・インテリア',
+      why: '香りだけでなく、部屋に飾って眺めたくなるオブジェとしても楽しみたい',
+      when: 'ドレッサー整理・部屋の模様替え・写真撮影やSNS投稿',
+      positioning: {
+        competitors: 'Tiffany, CHANEL, GUCCI, nicheブランドのアートボトル',
+        pop: 'ボトルデザイン自体が美しく、置いているだけで空間が華やぐこと',
+        pod: 'J’adoreのしずく型ボトルとゴールドの首飾りのようなデザインは、"香水というよりオブジェ""ボトル目当てで買った"というUGCが成立し、香りと同じくらい"見た目の所有欲"を刺激していること',
+        pof: '見た目目的で選ぶと、香りが好みに合わなかった場合「開封せずに飾るだけ」になり、実用性とのギャップを感じやすいこと'
+      }
+    }
+  ]
+}
+,
+{
+  id: 'dior-capture-totale',
+  name: 'Capture Totale',
+  sub: 'Skincare',
+  type: 'actor',
+  ugc: 273,
+  size: 0,
+  color: 0xffe0b2,
+  parent: 'l2_capture',
+  useCases: [
+    {
+      key: 'serum',
+      label: '本気エイジング美容液',
+      why: 'ハリ・毛穴・くすみなど、年齢サインをまとめて底上げしたい',
+      when: '夜のスキンケアルーティン・誕生日や節目の前後',
+      positioning: {
+        competitors: 'Cosme Decorte, SK-II, POLA, Cle de Peau',
+        pop: '年齢サイン（ハリ低下・乾燥・くすみなど）を総合的にケアでき、継続で肌の調子が整ってきたと実感しやすいこと',
+        pod: '植物由来の幹細胞研究に基づくなじむテクスチャーで、「エイジングケアなのに重くない・ベタつかない」とUGCで言及され、"本気ケア×心地よさ"を両立している点',
+        pof: '即効でのリフトアップやシワ改善を期待するとギャップが出やすく、数日〜数週間で効果を判断してやめてしまうリスクがあること'
+      }
+    },
+    {
+      key: 'hyal',
+      label: 'ヒアルショット・ポイントハリケア',
+      why: 'ほうれい線やゴルゴラインなど、特定のシワ・影だけを集中的にケアしたい',
+      when: '鏡を見て影が気になったとき・写真写りが気になり始めたタイミング',
+      positioning: {
+        competitors: 'POLA, SHISEIDO, Obagi, COSME DECORTE',
+        pop: '高濃度の保湿・ハリ成分を狙った部分に注入し込むことで、メイク前後問わずピンポイントにケアできること',
+        pod: '「ファンデ前に仕込むとほうれい線の影がやわらぐ」「ここぞの撮影前に使う」といったUGCがあり、ライン全体ではなく"部分集中ハリ担当"として位置づけられている点',
+        pof: '顔全体に使うには量と価格のバランスが悪く、広範囲の悩みにはコスパ的に続けにくいこと'
+      }
+    },
+    {
+      key: 'ret',
+      label: 'レチショット・なめらかキメケア',
+      why: '小ジワやごわつき、毛穴の目立ちをなめらかに整えたい',
+      when: '夜の集中ケア・肌のざらつきが気になったとき',
+      positioning: {
+        competitors: 'Kiehl’s, Obagi, La Roche-Posay, DRX',
+        pop: 'レチノール系成分でターンオーバーをサポートし、キメの乱れや毛穴の目立ちにアプローチできること',
+        pod: 'Capture Totaleは「幹細胞×レチ」発想で、いわゆる攻めのレチケアよりも"なめらかさとふっくら感"の両立をうたっており、UGCでも「ガチガチのレチよりマイルドで続けやすい」と語られている点',
+        pof: '敏感な人やコンディションが落ちている時期は、赤み・乾燥などのリアクションが出る可能性があり、使用ペースの調整が必要なこと'
+      }
+    },
+    {
+      key: 'line',
+      label: 'ライン使いでトータルケア',
+      why: '化粧水〜クリームまで、一式そろえて効果を最大化したい',
+      when: '冬場の本気ケア期間・ボーナス時・スキンケアを総入れ替えしたいとき',
+      positioning: {
+        competitors: 'SK-II, Cle de Peau, POLA, COSME DECORTE AQ',
+        pop: '洗顔・ローション・美容液・クリームなど、ラインで揃えることで保湿・ハリ・くすみなどをトータルにケアできること',
+        pod: '「ラインで使うとふっくら感が違う」「単品より全体の底上げ感が出る」というUGCがあり、ローズ由来成分とテクスチャーが互いに通った"世界観込みのトータル設計"が評価されている点',
+        pof: 'ラインすべてを揃えると高額になりやすく、途中でお気に入りのブランドを試したくなっても気軽に入れ替えづらいこと'
+      }
+    },
+    {
+      key: 'best',
+      label: 'ベスコス・成分ガチ勢チェック',
+      why: '話題のエイジングラインとして、一度は自分の肌で試してみたい',
+      when: 'ベスコス特集やランキングを見たあと・成分リサーチ後',
+      positioning: {
+        competitors: 'Cle de Peau, POLA, SK-II, LA MER',
+        pop: '美容誌やコスメアワードで名前が挙がり、一定以上の評価・認知があること',
+        pod: '“ラグジュアリーだけでなく成分設計もきちんとした見たい層”から、「幹細胞研究ベースの理論派ライン」として取り上げられ、UGCでも“エビデンス寄りデパコス”として語られている点',
+        pof: '受賞・話題性が先行すると期待値が上がりすぎ、「思ったより普通だった」と感じる人も一定数出て評価が割れやすいこと'
+      }
+    },
+    {
+      key: 'pre',
+      label: '美容医療手前のラストコスメ',
+      why: 'いきなり美容医療に行く前に、コスメでどこまでできるか試したい',
+      when: 'ヒアル注射やレーザーを検討し始めたとき・カウンセリング前',
+      positioning: {
+        competitors: 'ドクターズコスメ, Obagi, POLA, NAVISION',
+        pop: '美容医療ほどの即効性はないものの、日常のケアで"やれるだけやる"という安心感を与えてくれること',
+        pod: 'UGCでは「美容医療に行く前の最後の悪あがきとして投入」「これでだめならクリニックに行く」といった文脈で語られ、“ラグジュアリーとメディカルの間”のポジションを占めている点',
+        pof: '本当にリフトアップや深いシワ改善を求めている人にとっては、どうしても限界があり、美容医療に踏み切る決断を先延ばししてしまう可能性もあること'
+      }
+    },
+    {
+      key: 'mom',
+      label: 'ママ世代・産後の立て直し',
+      why: '出産や育児で一気に老け込んだ気がする肌を立て直したい',
+      when: '産後・卒乳前・子育てが少し落ち着いたタイミングの夜ケア',
+      positioning: {
+        competitors: 'POLA, Cosme Decorte, FANCL, dプログラム',
+        pop: '乾燥・くすみ・ハリ不足など、睡眠不足とストレスで揺らぎがちな肌にうるおいとツヤを戻してくれること',
+        pod: '「自分のための時間が少ない中で、キャプチュールのステップだけは死守している」というUGCがあり、“忙しいママが自分を取り戻すための夜の儀式”として使われている点',
+        pof: '育児期には価格ハードルが高く、継続購入が家計や罪悪感とトレードオフになりやすいこと'
+      }
+    },
+    {
+      key: 'gift',
+      label: '母の日・親世代ギフト',
+      why: '年齢肌の悩いが増えてきた親に、ちゃんとしたエイジングケアを贈りたい',
+      when: '母の日・誕生日・還暦祝い・敬老の日',
+      positioning: {
+        competitors: 'Cosme Decorte AQ, SK-II, POLA, Cle de Peau',
+        pop: 'ブランド力と効果への期待値が高く、「自分ではなかなか買わないけどもらったら嬉しい」ギフトになりやすいこと',
+        pod: 'ローズの香りと重量感のあるボトルが“大人の女性用”の雰囲気を強くまとっており、「母にプレゼントしたらすごく大事に使ってくれた」というUGCが多い、“感謝を形にするスキンケア”として機能している点',
+        pof: '香りの好みやテクスチャー（こってり感）が合わないと、価格が高いだけに使われず棚に置かれるだけになるリスクがあること'
+      }
+    }
+  ]
+}
+,
+{
+  id: 'dior-forever',
+  name: 'Dior Forever',
+  sub: 'Fluid Glow',
+  type: 'actor',
+  ugc: 1276,
+  size: 0,
+  color: 0xc6e6ff,
+  parent: 'l2_forever',
+  useCases: [
+    {
+      key: 'summer_sebum',
+      label: '夏・汗と皮脂対策',
+      why: '真夏でもテカらず、きれいないツヤ肌を一日キープしたい',
+      when: '真夏の通勤・屋外イベント・推し活遠征',
+      positioning: {
+        competitors: 'TIRTIR, NARS, ESTEE LAUDER, YSL',
+        pop: '汗・皮脂に強く、マスクや高温多湿な環境でも極端に崩れないこと',
+        pod: '高温多湿＋長時間でも、カバー力と素肌感・ツヤ感のバランスが保たれ「崩れても汚く見えない」とUGCで語られること',
+        pof: '下地やパウダーとの組み合わせを誤ると厚塗り感やテカりに見えやすいこと'
+      }
+    },
+    {
+      key: 'winter_dry',
+      label: '冬・乾燥対策',
+      why: '暖房で乾燥する季節でも粉吹きせず、しっとりした仕上がりでいたい',
+      when: '冬の通勤・外回り・長時間のお出かけ',
+      positioning: {
+        competitors: 'Cle de Peau, LANCOME, SHISEIDO, COSME DECORTE',
+        pop: '乾燥環境でもつっぱり感が少なく、時間がたっても粉を吹きにくいこと',
+        pod: 'カバー力を保ちながらもしっとり系のツヤが続き、「保湿クリームの上に載せてもきれいに密着する」と評価されていること',
+        pof: '乾燥肌の人がオイルリッチな下地と重ねると、時間経過でヨレやすいこと'
+      }
+    },
+    {
+      key: 'mask_life',
+      label: 'マスク生活・色移り対策',
+      why: 'マスクを外したときに鼻だけ落ちている…という状態を避けたい',
+      when: '通勤・ライブ・テーマパーク・長時間マスク着用のシーン',
+      positioning: {
+        competitors: 'La Roche-Posay, TIRTIR, ESTEE LAUDER, SHISEIDO',
+        pop: 'マスクへの色移りをある程度抑えつつ、素肌も見せられること',
+        pod: '肌への密着感が高く、「マスクの内側は多少ついても、顔側は意外ときれいなまま」という実感UGCが多いこと',
+        pof: '完全無移りではないため、白マスクや布マスクでは多少の色移りは許容が必要なこと'
+      }
+    },
+    {
+      key: 'everyday_work',
+      label: '仕事・毎日メイク',
+      why: '朝のひと塗りで、崩しいことを考えずに毎日きちんと見え肌にしたい',
+      when: '平日の通勤・オフィスワーク・外回り',
+      positioning: {
+        competitors: 'NARS, CHANEL, RMK, YSL',
+        pop: 'カバー力と素肌感のバランスが良く、オンの場にふさわしい“きちんと感”が出せること',
+        pod: '「とりあえずForeverを塗ればベースは安心」という指名使いUGCが多く、“毎日ベースのインフラ”的に語られていること',
+        pof: '色展開が多く、カウンターやオンラインでの色選びにやや迷いやすいこと'
+      }
+    },
+    {
+      key: 'date_closeup',
+      label: 'デート・近距離対応',
+      why: '至近距離で見られても、厚塗り感なく毛穴レスな肌に見せたい',
+      when: 'デート・記念日ディナー・推しとの接近イベント前',
+      positioning: {
+        competitors: 'Prada, CHANEL, YSL, SUQQU',
+        pop: '毛穴や色ムラを程よくカバーしつつ、素肌っぽいツヤと血色感を生かしてくれること',
+        pod: '時間が経った後の“肌のツヤの出方”がきれいで、「夕方のほうがむしろ盛れる」とUGCで注目されること',
+        pof: 'ハイライトやツヤ系下地と重ねすぎるとテカりに見え、近距離ではやりすぎに感じられること'
+      }
+    },
+    {
+      key: 'event_party',
+      label: 'イベント・撮影用ベース',
+      why: '照明やフラッシュの下でも毛穴や色ムラを飛ばして、写真写りをよくしたい',
+      when: '結婚式・二次会・前撮り・ライブ参戦・発表会',
+      positioning: {
+        competitors: 'ESTEE LAUDER, NARS, CHANEL, MAKE UP FOR EVER',
+        pop: '長時間崩れにくく、写真や動画で見ても肌色がよく見えること',
+        pod: 'ツヤとソフトマットのバランスが良く、「スタジオライトでも生っぽく肌がきれに見えた」と多数のシーンで評価されていること',
+        pof: 'カバー力重視で重ねると、リアルの場ではやや“塗りました感”が出やすいこと'
+      }
+    },
+    {
+      key: 'spring_refresh',
+      label: '春の新生活・イメチェン',
+      why: '新生活のタイミングで、ベースから雰囲気を一新したい',
+      when: '入学・入社前後・転職・引っ越し・イメチェン期',
+      positioning: {
+        competitors: 'HERA, LANCOME, RMK, SHISEIDO',
+        pop: 'トーンアップしつつも厚塗りになりすぎず、第一印象を明るく見せてくれること',
+        pod: 'ツヤ・マット・クッションなどライン構成が豊富で、「なりたい印象別にForeverから選ぶ」というUGCが多いこと',
+        pof: '質感や色を迷いすぎて購入までに時間がかかる・多数本持ちになりがちなこと'
+      }
+    },
+    {
+      key: 'self_reward',
+      label: '自分へのご褒美アプデ',
+      why: 'ベースメイクを格上げして「ちゃんとした自分」にスイッチしたい',
+      when: '昇進・転職・ボーナス・大きなプロジェクト完了後',
+      positioning: {
+        competitors: 'SUQQU, COSME DECORTE, Cle de Peau',
+        pop: 'プチプラより一段上の仕上がりと持ちで、「投資する価値がある」と感じさせること',
+        pod: '“デパコスベースの定番”として指名され言及されるUGCが多く、「まずはForeverにしてみる」というご褒美の入り口になっていること',
+        pof: '日常的に使うには価格ハードルがあり、ストック買いまでは踏み切りにくいこと'
+      }
+    },
+    {
+      key: 'gift_holiday',
+      label: 'ギフト・お祝い用ベース',
+      why: '実用的で失敗しにくければ、ちゃんと特別感もあるベースを購入したい',
+      when: '誕生日・クリスマス・就職祝い・母の日',
+      positioning: {
+        competitors: 'COSME DECORTE, Cle de Peau, CHANEL',
+        pop: 'ブランド力と実用性のバランスが良く、「絶対使ってもらえる」安心感があること',
+        pod: '色展開や質感が幅広く、カウンターやオンラインで一緒に選ぶ体験自体が“ギフトコンテンツ”化されやすいこと',
+        pof: '相手の肌色・好みを把握していないと色選びの壁が高く、オンラインギフトにはやや不向きなこと'
+      }
+    }
+  ]
+}
+
+];
+        
+        // L2カテゴリー定義
+        const l2Nodes = [
+            { id: 'l2_backstage', name: 'Backstage', color: 0xffc0cb, parent: 'core' },
+            { id: 'l2_forever', name: 'Forever', color: 0xc6e6ff, parent: 'core' },
+            { id: 'l2_addict', name: 'Addict', color: 0xffb7c5, parent: 'core' },
+            { id: 'l2_diorshow', name: 'Diorshow', color: 0xe3c5ff, parent: 'core' },
+            { id: 'l2_missdior', name: 'Miss Dior', color: 0xffe4f1, parent: 'core' },
+            { id: 'l2_rouge', name: 'Rouge Dior', color: 0xf5a3b5, parent: 'core' },
+            { id: 'l2_capture', name: 'Capture', color: 0xffe0b2, parent: 'core' },
+            { id: 'l2_prestige', name: 'Prestige', color: 0xffe3ec, parent: 'core' },
+            { id: 'l2_snow', name: 'Snow', color: 0xdaf2ff, parent: 'core' },
+            { id: 'l2_sauvage', name: 'Sauvage', color: 0x98c5ff, parent: 'core' },
+            { id: 'l2_jadore', name: 'J\'adore', color: 0xfff0c9, parent: 'core' }
+        ];
+
+        // UGCサイズ計算
+        function getUGCSize(ugc) {
+            if (!ugc) return 2.0;
+            return 2.0 + (ugc / 1300) * 3.0;
+        }
+        allProductsData.forEach(p => { p.size = getUGCSize(p.ugc); });
+
+        // --- Tree構築ロジック ---
+        const rootData = {
+            id: 'core', type: 'L1', name: 'Maison Dior', sub: 'PARIS', color: 0xD4AF37, size: 7.0,
+            children: l2Nodes.map(l2 => ({
+                ...l2, type: 'L2', size: 4.0,
+                children: allProductsData.filter(p => p.parent === l2.id).map(l3 => {
+                    // L4データ（ユースケース）の生成
+                    // useCaseUgcCounts（数値）と allProductsData.useCases（テキスト）を結合
+                    const numericalData = useCaseUgcCounts[l3.id] || {};
+                    const childrenL4 = l3.useCases.map((uc, i) => {
+                        // numericalDataのキーに対応する値を取得
+                        const count = numericalData[uc.key] || 0;
+                        // L4ノードのサイズはUGC数に基づくが、最小サイズを確保
+                        const l4Size = 0.8 + (count / 300) * 1.5; 
+                        
+                        return {
+                            id: `${l3.id}_uc_${uc.key}`, 
+                            type: 'L4', 
+                            name: uc.label,
+                            sub: uc.key, 
+                            color: l3.color, 
+                            size: Math.min(l4Size, 2.5), // 大きくなりすぎないように制限
+                            data: { 
+                                ...uc,
+                                ugcCount: count,
+                                parentId: l3.id
+                            }
+                        };
+                    });
+                    
+                    return {
+                        ...l3, type: 'L3', 
+                        children: childrenL4
+                    };
+                })
+            }))
+        };
+
+        // --- Three.js ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050505); 
+        scene.fog = new THREE.FogExp2(0x050505, 0.0008);
+
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 3000);
+        camera.position.set(0, 80, 250);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('viewer').appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; controls.dampingFactor = 0.05;
+        controls.enablePan = true; controls.screenSpacePanning = true;
+        controls.zoomSpeed = 1.2; controls.minDistance = 5; controls.maxDistance = 2000;
+        controls.autoRotate = true; controls.autoRotateSpeed = 0.15;
+        controls.addEventListener('start', () => { controls.autoRotate = false; });
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const spotLight = new THREE.SpotLight(0xffeebb, 2); spotLight.position.set(50, 100, 100); scene.add(spotLight);
+        scene.add(new THREE.PointLight(0xD4AF37, 2.0, 200));
+
+        // --- ノード生成 ---
+        const sphereMeshes = [];
+        const labelElements = [];
+        const lines = [];
+        const allNodes = [];
+
+        function createNodes(data, parent, level, angleOffset) {
+            const node = { ...data, children: undefined, parentId: parent ? parent.id : null, level: level };
+            
+            if (level === 0) node.pos = { x: 0, y: 0, z: 0 };
+            else {
+                const dist = [0, 80, 45, 0][level];
+                const px = parent.pos.x; const py = parent.pos.y; const pz = parent.pos.z;
+                
+                if (level === 3) { 
+                    // L4ノードの配置（親の周りに分散）
+                    const pSize = parent.size || 2.0;
+                    const dynamicDist = pSize * 3.0 + 6.0 + (Math.random() * 3.0);
+                    const yOffset = (Math.random() - 0.5) * 15;
+                    node.pos = { x: px + Math.cos(angleOffset) * dynamicDist, y: py + yOffset, z: pz + Math.sin(angleOffset) * dynamicDist };
+                } else {
+                    node.pos = { x: px + Math.cos(angleOffset) * dist, y: py + Math.sin(angleOffset) * dist * 0.15, z: pz + Math.sin(angleOffset) * dist };
+                }
+            }
+            allNodes.push(node);
+
+            let mat, geo;
+            if (level === 0) {
+                geo = new THREE.SphereGeometry(node.size, 64, 64);
+                mat = new THREE.MeshStandardMaterial({ color: node.color, emissive: 0xaa8800, emissiveIntensity: 0.5, metalness: 0.8, roughness: 0.1 });
+            } else if (level === 1) { // L2
+                geo = new THREE.SphereGeometry(node.size, 48, 48);
+                mat = new THREE.MeshPhysicalMaterial({ color: node.color, metalness: 0.1, roughness: 0.2, clearcoat: 1.0, transmission: 0.2, opacity: 0.9, transparent: true });
+            } else if (level === 2) { // L3 Product
+                geo = new THREE.SphereGeometry(node.size, 48, 48);
+                mat = new THREE.MeshPhysicalMaterial({ color: node.color, metalness: 0.1, roughness: 0.2, clearcoat: 1.0, transmission: 0.1 });
+            } else { // L4 Use Case
+                geo = new THREE.SphereGeometry(node.size, 24, 24);
+                mat = new THREE.MeshPhysicalMaterial({ color: node.color, metalness: 0.2, roughness: 0.4, clearcoat: 0.5 });
+            }
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(node.pos.x, node.pos.y, node.pos.z);
+            mesh.userData = node;
+            scene.add(mesh);
+            sphereMeshes.push(mesh);
+            node.mesh = mesh;
+
+            // Label
+            if (level !== 3) { // L4のラベルは非表示（数が多いので）
+                const div = document.createElement('div');
+                div.className = 'node-label';
+                if (level === 0) div.innerHTML = `<div class="dior-logo-text">Christian Dior</div><div class="dior-paris">PARIS</div>`;
+                else if (level === 1) div.innerHTML = `<div class="label-l2" style="color:#${node.color.toString(16)}">${node.name}</div>`;
+                else if (level === 2) div.innerHTML = `<div class="label-l3">${node.name}<span class="ugc-count">(${node.ugc})</span></div>`;
+                document.getElementById('labels-container').appendChild(div);
+                labelElements.push({ mesh: mesh, element: div, nodeData: node });
+                node.labelEl = div;
+            }
+
+            // Line
+            if (parent) {
+                const pts = [new THREE.Vector3(parent.pos.x, parent.pos.y, parent.pos.z), new THREE.Vector3(node.pos.x, node.pos.y, node.pos.z)];
+                const lMat = new THREE.LineBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.15 });
+                const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lMat);
+                scene.add(line);
+                lines.push({ line: line, source: parent, target: node });
+            }
+
+            if (data.children) {
+                data.children.forEach((child, i) => {
+                    let nextAngle;
+                    if (level === 0) nextAngle = (i / data.children.length) * Math.PI * 2;
+                    else if (level === 1) nextAngle = angleOffset + (i - data.children.length/2 + 0.5) * 0.6;
+                    else nextAngle = (i / data.children.length) * Math.PI * 2; 
+                    createNodes(child, node, level + 1, nextAngle);
+                });
+            }
+        }
+        createNodes(rootData, null, 0, 0);
+
+        // 星屑
+        const pGeo = new THREE.BufferGeometry(); const pCount = 15000; const pPos = new Float32Array(pCount * 3);
+        for(let i=0; i<pCount; i++) { pPos[i*3]=(Math.random()-0.5)*1000; pPos[i*3+1]=(Math.random()-0.5)*1000; pPos[i*3+2]=(Math.random()-0.5)*800; }
+        pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+        const stars = new THREE.Points(pGeo, new THREE.PointsMaterial({ size: 0.4, color: 0xffffff, transparent: true, opacity: 0.6 }));
+        scene.add(stars);
+
+        // --- Interaction ---
+        const raycaster = new THREE.Raycaster(); const mouse = new THREE.Vector2();
+        let isDrag = false; let downT = 0;
+        window.addEventListener('mousedown', ()=>{downT=Date.now(); isDrag=false;});
+        window.addEventListener('mouseup', (e)=>{ if(e.button!==2 && Date.now()-downT<200 && !e.target.closest('#left-sidebar') && !e.target.closest('#info-card')) checkClick(e); });
+
+        function checkClick(e) {
+            mouse.x = (e.clientX/window.innerWidth)*2-1; mouse.y = -(e.clientY/window.innerHeight)*2+1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(sphereMeshes.filter(m=>m.visible));
+            if(intersects.length>0) showPanel(intersects[0].object.userData);
+            else closePanel();
+        }
+
+        // --- パネル表示処理 ---
+        // --- パネル表示処理 (修正版) ---
+        function showPanel(node) {
+            const p = document.getElementById('info-card');
+            const content = document.getElementById('panel-content');
+            const title = document.getElementById('panel-title');
+            const layer = document.getElementById('panel-layer');
+            const ugcBadge = document.getElementById('panel-ugc');
+
+            p.classList.add('active');
+            title.innerText = node.name;
+            layer.innerText = node.type === 'L3' ? 'L3: PRODUCT' : (node.type === 'L4' ? 'L4: USE CASE' : 'LAYER: ' + node.type);
+
+            // バッジ表示制御
+            if(ugcBadge) {
+                if (node.type === 'L3') {
+                    ugcBadge.style.display = 'inline-block';
+                    ugcBadge.innerText = `${node.ugc || 0} UGC`;
+                } else if (node.type === 'L4') {
+                    ugcBadge.style.display = 'inline-block';
+                    ugcBadge.innerText = `${node.data.ugcCount || 0} UGC`;
+                } else {
+                    ugcBadge.style.display = 'none';
+                }
+            }
+
+            // --- L3: 商品クリック時 (UGC内訳を表示) ---
+            if (node.type === 'L3') {
+                // グローバル変数のUGCデータを参照
+                const ucData = useCaseUgcCounts[node.id];
+                
+                if (ucData) {
+                    // 値の大きい順（降順）にソート
+                    const sortedKeys = Object.keys(ucData).sort((a,b) => ucData[b] - ucData[a]);
+                    const maxVal = ucData[sortedKeys[0]] || 1; // 最大値（グラフの100%基準）
+
+                    let html = `<h3>Use Case UGC Breakdown</h3><table class="ugc-table">`;
+                    
+                    sortedKeys.forEach(key => {
+                        const val = ucData[key];
+                        const percent = (val / maxVal) * 100;
+
+                        // 日本語ラベルの検索 (node.useCasesから探す)
+                        let displayName = key;
+                        if (node.useCases) {
+                            const targetObj = node.useCases.find(u => u.key === key);
+                            if (targetObj && targetObj.label) {
+                                displayName = targetObj.label;
+                            }
+                        }
+
+                        html += `
+                            <tr>
+                                <th>${displayName}</th>
+                                <td>
+                                    <div class="ugc-count-val">${val}</div>
+                                    <div class="ugc-bar-container">
+                                        <div class="ugc-bar" style="width:${percent}%"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    html += `</table>`;
+                    content.innerHTML = html;
+                } else {
+                    content.innerHTML = `<p>No breakdown data available.</p>`;
+                }
+
+            // --- L4: Use Caseクリック時 (詳細を表示) ---
+            } else if (node.type === 'L4' && node.data) {
+                const d = node.data;
+                content.innerHTML = `
+                    <h3>Why / When</h3>
+                    <p><strong>Why:</strong> ${d.why}</p>
+                    <p style="margin-top:5px;"><strong>When:</strong> ${d.when}</p>
+                    <h3>Strategic Positioning</h3>
+                    <table class="pos-table">
+                        <tr><td class="pos-label">Competitors</td><td class="pos-val">${d.positioning.competitors}</td></tr>
+                        <tr><td class="pos-label highlight">POD</td><td class="pos-val highlight">${d.positioning.pod}</td></tr>
+                        <tr><td class="pos-label">POP</td><td class="pos-val">${d.positioning.pop}</td></tr>
+                        <tr><td class="pos-label">POF</td><td class="pos-val">${d.positioning.pof}</td></tr>
+                    </table>
+                `;
+            } else {
+                 content.innerHTML = `<p>Select a product or use case to view details.</p>`;
+            }
+        }
+
+        window.closePanel = function(){ document.getElementById('info-card').classList.remove('active'); }
+
+        window.filterView = function(targetId) {
+            document.querySelectorAll('.icon-btn').forEach(b=>b.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            
+            allNodes.forEach(n => {
+                if (targetId === 'all') {
+                    n.mesh.visible = true; if(n.labelEl) n.labelEl.style.opacity=1;
+                } else {
+                    if (n.level === 0) { n.mesh.visible=true; if(n.labelEl)n.labelEl.style.opacity=1; return; }
+                    let match = false;
+                    if (n.id === targetId || n.parentId === targetId) match = true;
+                    // L4の場合、親の親がtargetIdかチェック
+                    if (n.level === 3) { const p = allNodes.find(x=>x.id===n.parentId); if(p && p.parentId === targetId) match=true; }
+                    
+                    // 直系の親L2も表示しておくと見やすい
+                    if (n.level === 1 && allNodes.some(child => child.parentId === n.id && child.id === targetId)) match = true;
+
+                    n.mesh.visible = match;
+                    if(n.labelEl) n.labelEl.style.opacity = match ? 1 : 0;
+                }
+            });
+            lines.forEach(l => { l.line.visible = l.source.mesh.visible && l.target.mesh.visible; });
+        };
+
+        function animate() {
+            requestAnimationFrame(animate); controls.update(); stars.rotation.y -= 0.0001; renderer.render(scene, camera);
+            labelElements.forEach(item => {
+                if (!item.mesh.visible) { item.element.style.opacity=0; return; }
+                const v = new THREE.Vector3(); item.mesh.updateWorldMatrix(true,false); item.mesh.getWorldPosition(v); v.project(camera);
+                if (v.z > 1.0) { item.element.style.opacity=0; return; }
+                const x = (v.x*.5+.5)*window.innerWidth; const y = (v.y*-.5+.5)*window.innerHeight;
+                item.element.style.left=`${x}px`; item.element.style.top=`${y}px`; item.element.style.opacity=1;
+            });
+        }
+        animate();
+        window.addEventListener('resize', ()=>{ camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+    </script>
+</body>
+</html>
